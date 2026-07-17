@@ -148,22 +148,25 @@ def parse_declarations(
             _, m = decl_starts[di]
             di += 1
             kind = m.group("kind")
-            name = m.group("name") or ""
+            name_raw = m.group("name") or ""
+            ns = ".".join(ns_stack)
             start_idx = i
             end_idx = decl_starts[di][0] if di < len(decl_starts) else len(lines)
             src = "\n".join(lines[start_idx:end_idx])
-            if not name and kind != "instance":
+            if not name_raw and kind != "instance":
                 warnings.append(f"{source_file}:{start_idx + 1}: 无法解析 {kind} 名称")
                 pending_doc = None
                 pending_attrs = []
                 continue
             mods = m.group("mods") or ""
+            # 完整限定名 = 命名空间 + 短名（与 Lean 常量名一致，便于与 extract 对齐）
+            qualified = (ns + "." + name_raw) if (ns and name_raw) else name_raw
             results.append(
                 Declaration(
-                    name=name,
-                    shortName=name.rsplit(".", 1)[-1] if name else "",
+                    name=qualified,
+                    shortName=name_raw.rsplit(".", 1)[-1] if name_raw else "",
                     kind=kind,
-                    namespace=".".join(ns_stack),
+                    namespace=ns,
                     docstring=pending_doc,
                     sourceFile=source_file,
                     startLine=start_idx + 1,

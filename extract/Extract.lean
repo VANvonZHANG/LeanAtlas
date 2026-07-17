@@ -19,32 +19,43 @@ def main (args : List String) : IO UInt32 := do
   let consts := kenv.constants.fold (init := []) (fun acc name ci => (name, ci) :: acc)
   IO.eprintln s!"[extract] const count: {consts.length}"
   for (name, ci) in consts do
-    let typeDeps := ci.type.getUsedConstants
-    let valueDeps :=
-      ci.value? (allowOpaque := true) |>.map (·.getUsedConstants) |>.getD #[]
-    let mut seen : NameSet := {}
-    let mut entries : Array Json := #[]
-    -- 类型中的依赖：inType=true
-    for d in typeDeps do
-      if d = name then continue
-      if seen.contains d then continue
-      seen := seen.insert d
-      entries := entries.push <|
-        Json.mkObj [("name", Json.str d.toString),
-                     ("inType", Json.bool true),
-                     ("inValue", Json.bool (valueDeps.contains d))]
-    -- 仅出现在值里的依赖：inType=false, inValue=true
-    for d in valueDeps do
-      if d = name then continue
-      if seen.contains d then continue
-      seen := seen.insert d
-      entries := entries.push <|
-        Json.mkObj [("name", Json.str d.toString),
-                     ("inType", Json.bool false),
-                     ("inValue", Json.bool true)]
-    let fmt ← PrettyPrinter.ppExprLegacy env mctx lctx Options.empty ci.type
-    let obj := Json.mkObj [("name", Json.str name.toString),
-                            ("typeSignature", Json.str (toString fmt)),
-                            ("deps", Json.arr entries)]
-    IO.println obj.compress
+    try
+      let typeDeps := ci.type.getUsedConstants
+      let valueDeps :=
+        ci.value? (allowOpaque := true) |>.map (·.getUsedConstants) |>.getD #[]
+      let mut seen : NameSet := {}
+      let mut entries : Array Json := #[]
+      -- 类型中的依赖：inType=true
+      for d in typeDeps do
+        if d = name then continue
+        if seen.contains d then continue
+        seen := seen.insert d
+        entries := entries.push <|
+          Json.mkObj [("name", Json.str d.toString),
+                       ("inType", Json.bool true),
+                       ("inValue", Json.bool (valueDeps.contains d))]
+      -- 仅出现在值里的依赖：inType=false, inValue=true
+      for d in valueDeps do
+        if d = name then continue
+        if seen.contains d then continue
+        seen := seen.insert d
+        entries := entries.push <|
+          Json.mkObj [("name", Json.str d.toString),
+                       ("inType", Json.bool false),
+                       ("inValue", Json.bool true)]
+      -- delab 对匿名/辅助常量可能抛异常，兜底用原始 Expr 表示
+      let typeSig ← try
+        let fmt ← PrettyPrinter.ppExprLegacy env mctx lctx Options.empty ci.type
+        pure (toString fmt)
+      catch _ =>
+        pure (toString (repr ci.type))
+      let obj := Json.mkObj [("name", Json.str name.toString),
+                              ("typeSignature", Json.str typeSig),
+                              ("deps", Json.arr entries)]
+      IO.println obj.compress
+    catch _ =>
+      -- 罕见：整条处理失败，输出最小记录，保证不丢常量、不中断
+      IO.println (Json.mkObj [("name", Json.str name.toString),
+                              ("typeSignature", Json.str ""),
+                              ("deps", Json.arr #[])]).compress
   return 0

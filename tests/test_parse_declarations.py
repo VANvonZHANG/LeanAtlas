@@ -20,7 +20,7 @@ def test_parse_declarations_basic():
     kinds = [d.kind for d in decls]
     assert kinds == ["theorem", "def"]
     foo = decls[0]
-    assert foo.name == "foo"
+    assert foo.name == "Quandles.foo"
     assert foo.shortName == "foo"
     assert foo.namespace == "Quandles"
     assert "simp" in foo.attrs
@@ -29,7 +29,7 @@ def test_parse_declarations_basic():
     assert foo.endLine == 7  # def 行（排他上界）
     assert "theorem foo" in foo.sourceText
     bar = decls[1]
-    assert bar.name == "bar"
+    assert bar.name == "Quandles.bar"
     assert bar.namespace == "Quandles"
     assert bar.sourceText.strip().startswith("def bar")
 
