@@ -1,0 +1,10 @@
+name = "mathlibkg-extract"
+version = "0.1.0"
+
+[[require]]
+name = "mathlib"
+path = "/path/to/mathlib4"
+
+[[lean_exe]]
+name = "extract"
+root = "Extract"
