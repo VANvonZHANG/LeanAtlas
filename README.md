@@ -86,4 +86,4 @@ v1（本包）= 地基：节点 + 命名空间树 + import 边 + 精确依赖 DA
 
 - regex 解析覆盖 ~90% 声明头；无法识别的记 warning 不中断。
 - `private` 声明（`_private....` 前缀）与匿名辅助常量：匿名项 delab 失败时兜底为原始 Expr 表示，不中断。
-- 抽取任一 mathlib 模块都会拉取整个 mathlib 环境（≈25 万常量）——这是 Lean import 的传递性使然，全量装载本就需要全量抽取。
+- **抽取范围 = 模块的传递 import 闭包**：抽取单个模块（如 `Mathlib.Algebra.Quandle`）只得到该模块及其依赖闭包，不含未被它 import 的模块（如 NumberTheory）。要装载完整 mathlib 图，必须抽取聚合模块 `Mathlib`（它在 `Mathlib.lean` 中 import 全部子模块）。
