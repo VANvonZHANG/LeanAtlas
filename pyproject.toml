@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mathlib-kg"
+version = "0.1.0"
+description = "Build a Neo4j knowledge graph from Lean mathlib"
+requires-python = ">=3.12"
+authors = [{ name = "Fan Zhang" }]
+dependencies = [
+    "neo4j>=5.0",
+    "typer>=0.15",
+    "msgspec>=0.18",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+mathlib-kg = "mathlib_kg.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mathlib_kg"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
