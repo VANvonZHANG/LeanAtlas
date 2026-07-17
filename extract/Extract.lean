@@ -14,8 +14,10 @@ def main (args : List String) : IO UInt32 := do
   let env ← importModules #[{ module := modName }] Options.empty
   let lctx := LocalContext.empty
   let mctx : MetavarContext := {}
-  -- 先把所有常量收集成列表（SMap.fold 是纯函数，无法在其中做 IO）
-  let consts := env.constants.fold (init := []) (fun acc name ci => (name, ci) :: acc)
+  -- 用 kernel env 枚举全部常量（elaborator 的 env.constants 只是工作子集）
+  let kenv := env.toKernelEnv
+  let consts := kenv.constants.fold (init := []) (fun acc name ci => (name, ci) :: acc)
+  IO.eprintln s!"[extract] const count: {consts.length}"
   for (name, ci) in consts do
     let typeDeps := ci.type.getUsedConstants
     let valueDeps :=
