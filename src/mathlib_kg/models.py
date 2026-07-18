@@ -49,10 +49,27 @@ class Dep(msgspec.Struct):
     inValue: bool = False
 
 
+class ExtendsItem(msgspec.Struct):
+    parent: str
+    position: int
+
+
+class DeprecatedBy(msgspec.Struct):
+    replacement: str
+    message: Optional[str] = None
+    since: Optional[str] = None
+
+
 class ExtractRecord(msgspec.Struct):
     name: str
     typeSignature: str
     deps: list[Dep] = msgspec.field(default_factory=list)
+    # v2 结构关系边（缺省时为空/null，向后兼容旧 extract.jsonl）
+    extends: list[ExtendsItem] = msgspec.field(default_factory=list)
+    instantiates: Optional[str] = None
+    instancePriority: Optional[int] = None
+    deprecatedBy: Optional[DeprecatedBy] = None
+    additiveVersion: Optional[str] = None
 
 
 def module_to_json(m: ModuleRecord) -> str:
