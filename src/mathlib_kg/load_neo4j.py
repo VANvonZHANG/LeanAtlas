@@ -215,3 +215,100 @@ def load_dependencies_chunked(session, records: list, chunk: int = 2000) -> None
     """
     for i in range(0, len(records), chunk):
         session.execute_write(load_dependencies, records[i : i + chunk])
+
+
+def _rel_targets(er) -> list[str]:
+    """收集一条 extract 记录里所有关系端点的目标名（供外部占位）。"""
+    out: list[str] = []
+    for it in er.extends:
+        out.append(it.parent)
+    if er.instantiates:
+        out.append(er.instantiates)
+    if er.deprecatedBy:
+        out.append(er.deprecatedBy.replacement)
+    if er.additiveVersion:
+        out.append(er.additiveVersion)
+    return out
+
+
+def load_relationships(tx, records: list) -> None:
+    """v2：从 extract 记录的四类关系字段造 EXTENDS/INSTANTIATES/DEPRECATED_BY/HAS_ADDITIVE_VERSION 边。
+
+    全量重建路径下图已 drop，故用 CREATE（空图无重边风险）。外部端点（不在声明集中的类型类/替换名）
+    用 ON CREATE SET isExternal=true 建占位，保证边挂得上。
+    """
+    # ① 为所有目标端建占位（已存在的真实声明不受影响）
+    target_names: list[str] = []
+    seen: set[str] = set()
+    for er in records:
+        for cand in _rel_targets(er):
+            if cand not in seen:
+                seen.add(cand)
+                target_names.append(cand)
+    for i in range(0, len(target_names), BATCH):
+        tx.run(
+            "UNWIND $batch AS name MERGE (n:Declaration {name: name}) "
+            "ON CREATE SET n.isExternal = true",
+            batch=target_names[i : i + BATCH],
+        )
+
+    # ② EXTENDS（含 position）
+    ext_rows = [
+        {"src": er.name, "dst": it.parent, "position": it.position}
+        for er in records
+        for it in er.extends
+    ]
+    for i in range(0, len(ext_rows), BATCH):
+        tx.run(
+            "UNWIND $batch AS r MATCH (a:Declaration {name:r.src}), "
+            "(b:Declaration {name:r.dst}) "
+            "CREATE (a)-[:EXTENDS {position:r.position}]->(b)",
+            batch=ext_rows[i : i + BATCH],
+        )
+
+    # ③ INSTANTIATES（含 priority）
+    inst_rows = [
+        {"src": er.name, "dst": er.instantiates, "priority": er.instancePriority}
+        for er in records
+        if er.instantiates
+    ]
+    for i in range(0, len(inst_rows), BATCH):
+        tx.run(
+            "UNWIND $batch AS r MATCH (a:Declaration {name:r.src}), "
+            "(b:Declaration {name:r.dst}) "
+            "CREATE (a)-[:INSTANTIATES {priority:r.priority}]->(b)",
+            batch=inst_rows[i : i + BATCH],
+        )
+
+    # ④ DEPRECATED_BY（含 message, since）
+    dep_rows = [
+        {
+            "src": er.name,
+            "dst": er.deprecatedBy.replacement,
+            "message": er.deprecatedBy.message,
+            "since": er.deprecatedBy.since,
+        }
+        for er in records
+        if er.deprecatedBy
+    ]
+    for i in range(0, len(dep_rows), BATCH):
+        tx.run(
+            "UNWIND $batch AS r MATCH (a:Declaration {name:r.src}), "
+            "(b:Declaration {name:r.dst}) "
+            "CREATE (a)-[:DEPRECATED_BY {message:r.message, since:r.since}]->(b)",
+            batch=dep_rows[i : i + BATCH],
+        )
+
+    # ⑤ HAS_ADDITIVE_VERSION
+    add_rows = [
+        {"src": er.name, "dst": er.additiveVersion}
+        for er in records
+        if er.additiveVersion
+    ]
+    for i in range(0, len(add_rows), BATCH):
+        tx.run(
+            "UNWIND $batch AS r MATCH (a:Declaration {name:r.src}), "
+            "(b:Declaration {name:r.dst}) "
+            "CREATE (a)-[:HAS_ADDITIVE_VERSION]->(b)",
+            batch=add_rows[i : i + BATCH],
+        )
