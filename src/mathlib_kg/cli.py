@@ -74,6 +74,7 @@ def load(
             if truncated:
                 rprint(f"[yellow]截断 {truncated} 条超长 typeSignature (>{MAX_TYPE_SIGNATURE} 字符)[/yellow]")
             ldb.load_dependencies_chunked(s, erecs)
+            s.execute_write(ldb.load_relationships, erecs)
     driver.close()
     rprint(f"[green]装载完成: {len(recs)} 模块 -> {cfg.neo4j_db}[/green]")
 
