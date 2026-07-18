@@ -19,6 +19,14 @@ instance instB : B where
   a := 0
   b := 0
 
+/-- 参数化 instance：类型为 `∀ (α : Type), C α`，回归 INSTANTIATES Pi-binder bug。
+    旧代码对 `ci.type.getAppFn` 不会下穿 forallE，导致 head 取不到 → instantiates:null。 -/
+class C (α : Type) where
+  c : α → α
+
+instance instC (α : Type) : C α where
+  c := fun x => x
+
 def newB : Nat := 0
 
 /-- deprecated，测 DEPRECATED_BY 边 -/

@@ -62,6 +62,12 @@ def test_extract_struct_edges_fixture():
     inst = by_name["StructEdgesFixture.instB"]
     assert inst["instantiates"] == "StructEdgesFixture.B"
 
+    # INSTANTIATES 回归：参数化 instance instC 的类型是 `∀ (α : Type), C α`，
+    # 旧代码 getAppFn 不下穿 forallE，head 取不到 → instantiates:null（边被丢）。
+    # 这里硬断言剥 Pi 后能拿到 C（spec: INSTANTIATES Pi-binder bug 回归）。
+    inst_c = by_name["StructEdgesFixture.instC"]
+    assert inst_c["instantiates"] == "StructEdgesFixture.C"
+
     # DEPRECATED_BY：oldB → newB（软断言：attr 表可读时严格断言目标名）
     oldb = by_name["StructEdgesFixture.oldB"]
     if oldb.get("deprecatedBy"):

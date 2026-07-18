@@ -77,7 +77,14 @@ def main (args : List String) : IO UInt32 := do
       let isInst : Bool := Lean.Meta.isInstanceCore env name
       let instPair : Json × Json :=
         if isInst then
-          match ci.type.getAppFn.constName? with
+          -- strip Pi binders (instance types are usually ∀ binders..., ClassApp)
+          -- getAppFn 只剥离 app 节点，不会下穿 forallE/mdata，所以这里先手动剥层
+          let rec stripPi (e : Expr) : Expr :=
+            match e with
+            | .forallE _ _ body _ => stripPi body
+            | .mdata _ b => stripPi b
+            | _ => e
+          match (stripPi ci.type).getAppFn.constName? with
           | some head =>
             if Lean.isStructure env head then
               let prio : Option Nat := instState.instanceNames.find? name |>.map (·.priority)
