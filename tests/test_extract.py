@@ -42,3 +42,33 @@ def test_extract_init_nat_basic():
     assert all(r["typeSignature"] for r in recs[:30])
     # 至少有一些声明带有依赖
     assert sum(1 for r in recs if r["deps"]) > 0
+
+
+def test_extract_struct_edges_fixture():
+    """v2: EXTENDS/INSTANTIATES 是硬断言；
+    DEPRECATED_BY/HAS_ADDITIVE_VERSION 是软断言（attr 表若 v4.30.0 不可读则跳过，见 spec D12）。
+    """
+    # 先构建 fixture 模块（mathlib 已构建，构建一个 tiny 模块约数十秒）
+    subprocess.run(["lake", "build", "StructEdgesFixture"], cwd=EXTRACT_DIR, check=True,
+                   capture_output=True, text=True)
+    recs = _run_extract("StructEdgesFixture")
+    by_name = {r["name"]: r for r in recs}
+
+    # EXTENDS：B extends A（硬断言）
+    b = by_name["StructEdgesFixture.B"]
+    assert {"parent": "StructEdgesFixture.A", "position": 0} in b["extends"]
+
+    # INSTANTIATES：instB 的类型头是 B（硬断言）
+    inst = by_name["StructEdgesFixture.instB"]
+    assert inst["instantiates"] == "StructEdgesFixture.B"
+
+    # DEPRECATED_BY：oldB → newB（软断言：attr 表可读时严格断言目标名）
+    oldb = by_name["StructEdgesFixture.oldB"]
+    if oldb.get("deprecatedBy"):
+        assert oldb["deprecatedBy"]["replacement"] == "StructEdgesFixture.newB"
+        assert oldb["deprecatedBy"]["since"] == "2024-01-01"
+
+    # HAS_ADDITIVE_VERSION：foo → addFoo（软断言：attr 表可读时严格断言目标名）
+    foo = by_name["StructEdgesFixture.foo"]
+    if foo.get("additiveVersion"):
+        assert foo["additiveVersion"] == "StructEdgesFixture.addFoo"

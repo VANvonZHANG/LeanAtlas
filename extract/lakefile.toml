@@ -5,6 +5,11 @@ version = "0.1.0"
 name = "mathlib"
 path = "/path/to/mathlib4"
 
+[[lean_lib]]
+name = "StructEdgesFixture"
+roots = ["StructEdgesFixture"]
+
 [[lean_exe]]
 name = "extract"
 root = "Extract"
+supportInterpreter = true
