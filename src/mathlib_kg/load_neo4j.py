@@ -22,7 +22,15 @@ BATCH = 1000
 
 def connect() -> Driver:
     cfg = get_config()
-    return GraphDatabase.driver(cfg.neo4j_uri, auth=(cfg.neo4j_user, cfg.neo4j_password))
+    # 大批量装载下连接可能因 Neo4j GC 暂停而暂时无响应；放宽超时与重试上限
+    return GraphDatabase.driver(
+        cfg.neo4j_uri,
+        auth=(cfg.neo4j_user, cfg.neo4j_password),
+        connection_timeout=120,
+        connection_acquisition_timeout=120,
+        max_connection_lifetime=3600,
+        max_transaction_retry_time=600,
+    )
 
 
 def _decl_to_props(d) -> dict:
