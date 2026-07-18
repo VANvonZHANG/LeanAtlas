@@ -12,6 +12,9 @@ from .neo4j_schema import apply_schema, drop_kg, drop_kg_batched
 
 app = typer.Typer(add_completion=False, help="Build a Neo4j knowledge graph from mathlib.")
 
+# typeSignature 长度上限：个别声明的 repr 兜底可达数百 MB，必须截断
+MAX_TYPE_SIGNATURE = 10000
+
 
 @app.command()
 def parse(
@@ -47,18 +50,29 @@ def load(
         if extract:
             erecs = []
             skipped = 0
+            truncated = 0
             # 只按 \n 切行（不用 splitlines——它会在 \f/\v/  等 Unicode 行边界上误切，
             # 而 Lean 的 Json.str 未转义这些字符，会把一条记录切成碎片）
             for ln in Path(extract).read_text(encoding="utf-8").split("\n"):
                 if not ln.strip():
                     continue
                 try:
-                    erecs.append(extract_from_json(ln))
+                    rec = extract_from_json(ln)
                 except Exception:
                     # 极少数 extract 记录含 msgspec 无法严格解码的内容，跳过不中断
                     skipped += 1
+                    continue
+                # 截断病态 typeSignature（个别 repr 兜底可达数百 MB，会令 bolt 写超时）
+                if len(rec.typeSignature) > MAX_TYPE_SIGNATURE:
+                    rec.typeSignature = (
+                        rec.typeSignature[:MAX_TYPE_SIGNATURE] + "...<truncated>"
+                    )
+                    truncated += 1
+                erecs.append(rec)
             if skipped:
                 rprint(f"[yellow]跳过 {skipped} 条无法解码的 extract 记录[/yellow]")
+            if truncated:
+                rprint(f"[yellow]截断 {truncated} 条超长 typeSignature (>{MAX_TYPE_SIGNATURE} 字符)[/yellow]")
             ldb.load_dependencies_chunked(s, erecs)
     driver.close()
     rprint(f"[green]装载完成: {len(recs)} 模块 -> {cfg.neo4j_db}[/green]")
