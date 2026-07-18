@@ -217,6 +217,17 @@ def load_dependencies_chunked(session, records: list, chunk: int = 2000) -> None
         session.execute_write(load_dependencies, records[i : i + chunk])
 
 
+def load_relationships_chunked(session, records: list, chunk: int = 2000) -> None:
+    """v2 关系边分块提交，镜像 load_dependencies_chunked：避免单巨型事务。
+
+    spec §11：关系边 ~4 万量级，分块 2000/事务。
+    `load_relationships` 已按 list 取 records 且逐 record 正确；这里只是把记录
+    切到多个独立已提交事务里。占位端点用 MERGE，跨块安全（幂等）。
+    """
+    for i in range(0, len(records), chunk):
+        session.execute_write(load_relationships, records[i : i + chunk])
+
+
 def _rel_targets(er) -> list[str]:
     """收集一条 extract 记录里所有关系端点的目标名（供外部占位）。"""
     out: list[str] = []
