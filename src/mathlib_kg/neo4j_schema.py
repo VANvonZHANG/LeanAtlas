@@ -37,10 +37,15 @@ def drop_kg(tx) -> None:
 
 
 def drop_kg_batched(session) -> None:
-    """批量删除 KG 节点（CALL IN TRANSACTIONS 分批提交），适合大图清空，避免单事务删除百万边 OOM。"""
-    session.run(
-        "MATCH (n:Declaration) "
-        "CALL { WITH n DETACH DELETE n } IN TRANSACTIONS OF 50000 ROWS"
-    ).consume()
-    session.run("MATCH (n:Module) DETACH DELETE n")
-    session.run("MATCH (n:Namespace) DETACH DELETE n")
+    """批量清空 KG（先删边、再删节点），适合大图。
+
+    直接 DETACH DELETE 高度数枢纽节点（如 `id`/`Nat`）会令单事务触及百万边而 OOM；
+    故先分批删 DEPENDS_ON 等边，节点变孤立后再批量删。
+    """
+    while session.run("MATCH ()-[r:DEPENDS_ON]->() RETURN count(r)").single()[0] > 0:
+        session.run("MATCH ()-[r:DEPENDS_ON]->() WITH r LIMIT 200000 DELETE r")
+    for t in ("IMPORTS", "IN_NAMESPACE", "SUBNAMESPACE_OF", "DEFINED_IN"):
+        session.run(f"MATCH ()-[r:{t}]->() DELETE r")
+    for label in ("Declaration", "Module", "Namespace"):
+        while session.run(f"MATCH (n:{label}) RETURN count(n)").single()[0] > 0:
+            session.run(f"MATCH (n:{label}) WITH n LIMIT 50000 DELETE n")
