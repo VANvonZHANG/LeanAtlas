@@ -202,7 +202,7 @@ def load_dependencies(tx, records: list) -> None:
         tx.run(
             "UNWIND $batch AS r MATCH (a:Declaration {name:r.src}), "
             "(b:Declaration {name:r.dst}) "
-            "MERGE (a)-[rel:DEPENDS_ON]->(b) SET rel.context=r.context",
+            "CREATE (a)-[rel:DEPENDS_ON]->(b) SET rel.context=r.context",
             batch=edge_rows[i : i + BATCH],
         )
 
