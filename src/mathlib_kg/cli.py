@@ -8,7 +8,7 @@ from . import load_neo4j as ldb
 from . import parse_source
 from .config import get_config
 from .models import extract_from_json, module_from_json
-from .neo4j_schema import apply_schema, drop_kg
+from .neo4j_schema import apply_schema, drop_kg, drop_kg_batched
 
 app = typer.Typer(add_completion=False, help="Build a Neo4j knowledge graph from mathlib.")
 
@@ -81,7 +81,7 @@ def drop() -> None:
     cfg = get_config()
     driver = ldb.connect()
     with driver.session(database=cfg.neo4j_db) as s:
-        s.execute_write(drop_kg)
+        drop_kg_batched(s)
     driver.close()
     rprint(f"[yellow]已清空 KG 节点 ({cfg.neo4j_db})[/yellow]")
 

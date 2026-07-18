@@ -34,3 +34,13 @@ def drop_kg(tx) -> None:
     tx.run("MATCH (n:Declaration) DETACH DELETE n")
     tx.run("MATCH (n:Module) DETACH DELETE n")
     tx.run("MATCH (n:Namespace) DETACH DELETE n")
+
+
+def drop_kg_batched(session) -> None:
+    """批量删除 KG 节点（CALL IN TRANSACTIONS 分批提交），适合大图清空，避免单事务删除百万边 OOM。"""
+    session.run(
+        "MATCH (n:Declaration) "
+        "CALL { WITH n DETACH DELETE n } IN TRANSACTIONS OF 50000 ROWS"
+    ).consume()
+    session.run("MATCH (n:Module) DETACH DELETE n")
+    session.run("MATCH (n:Namespace) DETACH DELETE n")
