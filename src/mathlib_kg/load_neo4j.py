@@ -205,3 +205,13 @@ def load_dependencies(tx, records: list) -> None:
             "MERGE (a)-[rel:DEPENDS_ON]->(b) SET rel.context=r.context",
             batch=edge_rows[i : i + BATCH],
         )
+
+
+def load_dependencies_chunked(session, records: list, chunk: int = 2000) -> None:
+    """按记录分块、每块独立事务提交——避免把数百万依赖边塞进单个巨型事务。
+
+    `load_dependencies` 本身把占位/typeSig/边都在 *一个* 事务里做（适合小数据）；
+    全量装载时必须切成多个已提交事务，否则 Neo4j 事务状态会撑爆内存/超时。
+    """
+    for i in range(0, len(records), chunk):
+        session.execute_write(load_dependencies, records[i : i + chunk])

@@ -59,7 +59,7 @@ def load(
                     skipped += 1
             if skipped:
                 rprint(f"[yellow]跳过 {skipped} 条无法解码的 extract 记录[/yellow]")
-            s.execute_write(ldb.load_dependencies, erecs)
+            ldb.load_dependencies_chunked(s, erecs)
     driver.close()
     rprint(f"[green]装载完成: {len(recs)} 模块 -> {cfg.neo4j_db}[/green]")
 
