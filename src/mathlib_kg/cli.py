@@ -35,7 +35,7 @@ def load(
     driver = ldb.connect()
     recs = [
         module_from_json(ln)
-        for ln in Path(structure).read_text(encoding="utf-8").splitlines()
+        for ln in Path(structure).read_text(encoding="utf-8").split("\n")
         if ln.strip()
     ]
     with driver.session(database=cfg.neo4j_db) as s:
@@ -45,11 +45,20 @@ def load(
         s.execute_write(ldb.load_declarations, recs)
         s.execute_write(ldb.load_imports, recs)
         if extract:
-            erecs = [
-                extract_from_json(ln)
-                for ln in Path(extract).read_text(encoding="utf-8").splitlines()
-                if ln.strip()
-            ]
+            erecs = []
+            skipped = 0
+            # 只按 \n 切行（不用 splitlines——它会在 \f/\v/  等 Unicode 行边界上误切，
+            # 而 Lean 的 Json.str 未转义这些字符，会把一条记录切成碎片）
+            for ln in Path(extract).read_text(encoding="utf-8").split("\n"):
+                if not ln.strip():
+                    continue
+                try:
+                    erecs.append(extract_from_json(ln))
+                except Exception:
+                    # 极少数 extract 记录含 msgspec 无法严格解码的内容，跳过不中断
+                    skipped += 1
+            if skipped:
+                rprint(f"[yellow]跳过 {skipped} 条无法解码的 extract 记录[/yellow]")
             s.execute_write(ldb.load_dependencies, erecs)
     driver.close()
     rprint(f"[green]装载完成: {len(recs)} 模块 -> {cfg.neo4j_db}[/green]")
