@@ -60,6 +60,16 @@ class DeprecatedBy(msgspec.Struct):
     since: Optional[str] = None
 
 
+class FieldItem(msgspec.Struct):
+    name: str
+    position: int
+
+
+class CtorItem(msgspec.Struct):
+    name: str
+    position: int
+
+
 class ExtractRecord(msgspec.Struct):
     name: str
     typeSignature: str
@@ -70,6 +80,9 @@ class ExtractRecord(msgspec.Struct):
     instancePriority: Optional[int] = None
     deprecatedBy: Optional[DeprecatedBy] = None
     additiveVersion: Optional[str] = None
+    # v2.5 字段/构造子（缺省时空列表，向后兼容）
+    fields: list[FieldItem] = msgspec.field(default_factory=list)
+    constructors: list[CtorItem] = msgspec.field(default_factory=list)
 
 
 def module_to_json(m: ModuleRecord) -> str:

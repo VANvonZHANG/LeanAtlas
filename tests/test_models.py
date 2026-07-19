@@ -119,3 +119,43 @@ def test_extract_record_new_fields_default_when_absent():
     assert back.instancePriority is None
     assert back.deprecatedBy is None
     assert back.additiveVersion is None
+
+
+from mathlib_kg.models import FieldItem, CtorItem
+
+
+def test_extract_record_fields_roundtrip():
+    e = ExtractRecord(
+        name="StructEdgesFixture.D2",
+        typeSignature="Type",
+        fields=[
+            FieldItem(name="StructEdgesFixture.D2.d1", position=0),
+            FieldItem(name="StructEdgesFixture.D2.d2", position=1),
+        ],
+    )
+    back = extract_from_json(extract_to_json(e))
+    assert back == e
+    assert [f.name for f in back.fields] == ["StructEdgesFixture.D2.d1", "StructEdgesFixture.D2.d2"]
+    assert [f.position for f in back.fields] == [0, 1]
+
+
+def test_extract_record_constructors_roundtrip():
+    e = ExtractRecord(
+        name="StructEdgesFixture.Foo",
+        typeSignature="Type",
+        constructors=[
+            CtorItem(name="StructEdgesFixture.Foo.c1", position=0),
+            CtorItem(name="StructEdgesFixture.Foo.c2", position=1),
+        ],
+    )
+    back = extract_from_json(extract_to_json(e))
+    assert [c.name for c in back.constructors] == ["StructEdgesFixture.Foo.c1", "StructEdgesFixture.Foo.c2"]
+    assert [c.position for c in back.constructors] == [0, 1]
+
+
+def test_extract_record_fields_ctors_default_when_absent():
+    # 旧格式 JSON（无 fields/constructors）仍可解码，新字段取默认空列表
+    legacy = '{"name":"X","typeSignature":"T","deps":[]}'
+    back = extract_from_json(legacy)
+    assert back.fields == []
+    assert back.constructors == []
