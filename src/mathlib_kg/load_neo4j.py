@@ -325,16 +325,22 @@ def load_relationships(tx, records: list) -> None:
         )
 
 
-def load_fields_constructors(tx, records: list, type_names: set[str]) -> None:
+def load_fields_constructors(tx, records: list, type_names: set[str],
+                             sig_by_name: dict | None = None) -> None:
     """v2.5：把 mathlib 类型（er.name ∈ type_names）的字段/构造子扶正为 :Field/:Constructor
     节点并挂 HAS_FIELD/HAS_CONSTRUCTOR 边。
 
     全量重建路径下图已 drop，故边用 CREATE（空图无重边风险）。范围判据在 Python 侧
     （type_names 来自 structure.jsonl 的 mathlib 类型声明集），外部类型不展开。
     字段/构造子若第 5 步未被任何声明依赖（未建点），此处首次建点并补 typeSignature。
+
+    sig_by_name：可选的 name → typeSignature 全量索引；若 None（默认，单事务/单元测试路径）
+    则就地从 records 构建。分块路径需在分块前全量构建并传入，否则字段常量自身的记录
+    （带 typeSig）与其父类型记录（带 fields）落入不同 chunk 时无法补写。
     """
     # name → typeSignature 索引（字段/构造子常量自己的记录带 typeSig，复用补写）
-    sig_by_name = {er.name: er.typeSignature for er in records}
+    if sig_by_name is None:
+        sig_by_name = {er.name: er.typeSignature for er in records}
 
     # 收集字段行（仅 er.name ∈ type_names 的类型）
     field_rows = [
@@ -388,6 +394,11 @@ def load_fields_constructors_chunked(session, records: list, type_names: set[str
                                      chunk: int = 2000) -> None:
     """v2.5 字段/构造子边分块提交，镜像 load_relationships_chunked：避免单巨型事务。
     全量装载 fields/constructors 量级 ~15 万，分块 2000/事务。
+
+    sig_by_name 在分块前全量构建（跨 chunk 可见）——字段常量自身的 ExtractRecord
+    （带 typeSig）与其所属类型记录常落在不同 chunk，per-chunk 索引会丢失 typeSig。
     """
+    sig_by_name = {er.name: er.typeSignature for er in records}
     for i in range(0, len(records), chunk):
-        session.execute_write(load_fields_constructors, records[i : i + chunk], type_names)
+        session.execute_write(load_fields_constructors, records[i : i + chunk],
+                              type_names, sig_by_name)
