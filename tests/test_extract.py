@@ -78,3 +78,43 @@ def test_extract_struct_edges_fixture():
     foo = by_name["StructEdgesFixture.foo"]
     if foo.get("additiveVersion"):
         assert foo["additiveVersion"] == "StructEdgesFixture.addFoo"
+
+
+def test_extract_fields_constructors_fixture():
+    """v2.5: HAS_FIELD（扁平含继承）+ HAS_CONSTRUCTOR（多构造子 + position）。"""
+    # 先构建 fixture（含新增 D1/D2/Foo，增量构建数十秒）
+    subprocess.run(["lake", "build", "StructEdgesFixture"], cwd=EXTRACT_DIR, check=True,
+                   capture_output=True, text=True)
+    recs = _run_extract("StructEdgesFixture")
+    by_name = {r["name"]: r for r in recs}
+    all_names = set(by_name.keys())
+
+    # --- HAS_FIELD（扁平，含继承）---
+    d2 = by_name["StructEdgesFixture.D2"]
+    field_names = {f["name"] for f in d2["fields"]}
+    # 硬断言（Step 2 实证）：
+    #   - 自有字段 d2 → 投影 StructEdgesFixture.D2.d2
+    #   - 继承字段 d1 → Lean 复用父结构投影 StructEdgesFixture.D1.d1（非子合成 D2.d1）
+    #   - 子对象强转 → StructEdgesFixture.D2.toD1（getStructureFieldsFlattened 默认 includeSubobjectFields）
+    assert "StructEdgesFixture.D2.d2" in field_names
+    assert "StructEdgesFixture.D1.d1" in field_names, f"继承字段缺失，实际 fields={field_names}"
+    assert "StructEdgesFixture.D2.toD1" in field_names
+    # 交叉验证（防拼名错误）：每个 field 名都必须是 env 里真实存在的常量（出现在 extract 全部记录里）
+    missing = field_names - all_names
+    assert missing == set(), f"fields 拼出名不在 env 常量集：{missing}（回 Step 2 核对 getStructureFieldsFlattened 返回格式）"
+    # position 单调（0..n-1，无重复）
+    positions = [f["position"] for f in d2["fields"]]
+    assert positions == list(range(len(positions)))
+
+    # --- HAS_CONSTRUCTOR（structure 的 mk + inductive 多构造子）---
+    d2c = by_name["StructEdgesFixture.D2"]
+    assert [c["name"] for c in d2c["constructors"]] == ["StructEdgesFixture.D2.mk"]
+    assert [c["position"] for c in d2c["constructors"]] == [0]
+
+    foo = by_name["StructEdgesFixture.Foo"]
+    ctor_names = {c["name"] for c in foo["constructors"]}
+    assert ctor_names == {"StructEdgesFixture.Foo.c1", "StructEdgesFixture.Foo.c2"}
+    assert sorted(c["position"] for c in foo["constructors"]) == [0, 1]
+    # 非类型常量（如 instB）不应有 fields/constructors
+    inst = by_name["StructEdgesFixture.instB"]
+    assert inst["fields"] == [] and inst["constructors"] == []

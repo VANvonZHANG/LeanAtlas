@@ -109,6 +109,40 @@ def main (args : List String) : IO UInt32 := do
         | some info => Json.str info.translation.toString
         | none => Json.null
 
+      -- v2.5 字段/构造子：仅类型常量（.inductInfo）输出构造子；structure 额外输出扁平字段
+      -- Step 2 核对（v4.30.0 源码 + 实证）：
+      --   * getStructureFieldsFlattened env n : Array Name —— 返回【短名】单组件名
+      --     （如 `#[toD1, d1, d2]`，含 toParent 强转 + 继承扁平 + 自有字段）。
+      --   * 继承字段的投影函数名【不是】`子结构.字段` —— Lean 复用父结构投影
+      --     （如 `D2 extends D1` 的 `d1` → 实际投影 `D1.d1`，非子合成 `D2.d1`）。
+      --     故先用 findField? 定位持有该字段的结构，再取其真实 projFn；
+      --     子对象字段（如 `toD1`）则由 findField? 直接返回子结构，projFn 即 `D2.toD1`。
+      --   * InductiveVal.ctors : List Name —— 已含【全限定】构造子名，直接用（先 toArray 配合 mapIdx）。
+      let ctorsArr : Json :=
+        match ci with
+        | .inductInfo iv =>
+          -- iv.ctors : List Name；先 toArray 再 mapIdx，与 fieldsArr 同为 Array Json
+          Json.arr (iv.ctors.toArray.mapIdx fun i n =>
+            Json.mkObj [("name", Json.str n.toString), ("position", Json.num i)])
+        | _ => Json.arr #[]
+      let fieldsArr : Json :=
+        match ci with
+        | .inductInfo _ =>
+          if Lean.isStructure env name then
+            -- Step 2 实证：getStructureFieldsFlattened 返回扁平字段【短名】，
+            -- 但继承字段的投影函数名并不总是 `子结构.字段` —— 若该字段实属父结构，
+            -- Lean 复用父结构的投影（如 `D2 extends D1` 的 `d1` → 实际投影 `D1.d1`，
+            -- 而非子合成 `D2.d1`）。子对象字段（如 `toD1`）则是子结构自有投影。
+            -- 故对每个扁平字段用 findField? 定位持有它的结构，再取其真实 projFn。
+            let fs := Lean.getStructureFieldsFlattened env name
+            Json.arr (fs.mapIdx fun i f =>
+              let owner : Name := Lean.findField? env name f |>.getD name
+              let fullName : Name :=
+                Lean.getProjFnForField? env owner f |>.getD (Name.mkStr name f.toString)
+              Json.mkObj [("name", Json.str fullName.toString), ("position", Json.num i)])
+          else Json.arr #[]
+        | _ => Json.arr #[]
+
       let obj := Json.mkObj [
         ("name", Json.str name.toString),
         ("typeSignature", Json.str typeSig),
@@ -117,7 +151,9 @@ def main (args : List String) : IO UInt32 := do
         ("instantiates", instName),
         ("instancePriority", instPrio),
         ("deprecatedBy", depObj),
-        ("additiveVersion", addName)]
+        ("additiveVersion", addName),
+        ("fields", fieldsArr),
+        ("constructors", ctorsArr)]
       IO.println obj.compress
     catch _ =>
       -- 罕见：整条处理失败，输出最小记录，保证不丢常量、不中断

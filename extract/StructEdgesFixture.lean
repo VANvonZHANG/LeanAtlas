@@ -37,4 +37,18 @@ def oldB : Nat := 0
 @[to_additive addFoo]
 def foo {α : Type} [Mul α] (x y : α) : α := x * y
 
+/-- v2.5：基类，供扁平字段测试 -/
+class D1 where
+  d1 : Nat
+
+/-- v2.5：extends D1，测 HAS_FIELD 扁平（D2 应含继承合成投影 D2.d1 + 自有 D2.d2；
+  强转 D2.toD1 是否计入由 getStructureFieldsFlattened 决定，见 Step 2）。 -/
+class D2 extends D1 where
+  d2 : Nat
+
+/-- v2.5：归纳类型，测 HAS_CONSTRUCTOR（多构造子 + position）。 -/
+inductive Foo
+  | c1 : Foo
+  | c2 : Nat → Foo
+
 end StructEdgesFixture
