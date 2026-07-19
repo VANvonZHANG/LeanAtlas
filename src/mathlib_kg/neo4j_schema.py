@@ -42,12 +42,14 @@ def drop_kg_batched(session) -> None:
     直接 DETACH DELETE 高度数枢纽节点（如 `id`/`Nat`）会令单事务触及百万边而 OOM；
     故先分批删 DEPENDS_ON 等边，节点变孤立后再批量删。
     """
-    while session.run("MATCH ()-[r:DEPENDS_ON]->() RETURN count(r)").single()[0] > 0:
-        session.run("MATCH ()-[r:DEPENDS_ON]->() WITH r LIMIT 200000 DELETE r")
-    for t in ("IMPORTS", "IN_NAMESPACE", "SUBNAMESPACE_OF", "DEFINED_IN",
+    # 所有边类型统一分块删除（M1 加固：HAS_FIELD 在生产量级 ~150k 边，
+    # 与 v2 验证过的 DEPENDS_ON 单事务上限 ~20k 相比高 8 倍，单事务 DELETE 有 OOM 风险；
+    # 故对每种边类型都镜像 DEPENDS_ON 的 while...LIMIT...DELETE 模式）
+    for t in ("DEPENDS_ON", "IMPORTS", "IN_NAMESPACE", "SUBNAMESPACE_OF", "DEFINED_IN",
               "EXTENDS", "INSTANTIATES", "DEPRECATED_BY", "HAS_ADDITIVE_VERSION",
               "HAS_FIELD", "HAS_CONSTRUCTOR"):
-        session.run(f"MATCH ()-[r:{t}]->() DELETE r")
+        while session.run(f"MATCH ()-[r:{t}]->() RETURN count(r)").single()[0] > 0:
+            session.run(f"MATCH ()-[r:{t}]->() WITH r LIMIT 200000 DELETE r")
     for label in ("Declaration", "Module", "Namespace"):
         while session.run(f"MATCH (n:{label}) RETURN count(n)").single()[0] > 0:
             session.run(f"MATCH (n:{label}) WITH n LIMIT 50000 DELETE n")
