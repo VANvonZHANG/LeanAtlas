@@ -75,6 +75,12 @@ def load(
                 rprint(f"[yellow]截断 {truncated} 条超长 typeSignature (>{MAX_TYPE_SIGNATURE} 字符)[/yellow]")
             ldb.load_dependencies_chunked(s, erecs)
             ldb.load_relationships_chunked(s, erecs)
+            # v2.5：由 structure.jsonl 算 mathlib 类型集，挂 HAS_FIELD/HAS_CONSTRUCTOR
+            mathlib_type_names = {
+                d.name for r in recs for d in r.declarations
+                if d.kind in ("structure", "class", "inductive")
+            }
+            ldb.load_fields_constructors_chunked(s, erecs, mathlib_type_names)
     driver.close()
     rprint(f"[green]装载完成: {len(recs)} 模块 -> {cfg.neo4j_db}[/green]")
 
