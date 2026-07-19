@@ -323,3 +323,71 @@ def load_relationships(tx, records: list) -> None:
             "CREATE (a)-[:HAS_ADDITIVE_VERSION]->(b)",
             batch=add_rows[i : i + BATCH],
         )
+
+
+def load_fields_constructors(tx, records: list, type_names: set[str]) -> None:
+    """v2.5：把 mathlib 类型（er.name ∈ type_names）的字段/构造子扶正为 :Field/:Constructor
+    节点并挂 HAS_FIELD/HAS_CONSTRUCTOR 边。
+
+    全量重建路径下图已 drop，故边用 CREATE（空图无重边风险）。范围判据在 Python 侧
+    （type_names 来自 structure.jsonl 的 mathlib 类型声明集），外部类型不展开。
+    字段/构造子若第 5 步未被任何声明依赖（未建点），此处首次建点并补 typeSignature。
+    """
+    # name → typeSignature 索引（字段/构造子常量自己的记录带 typeSig，复用补写）
+    sig_by_name = {er.name: er.typeSignature for er in records}
+
+    # 收集字段行（仅 er.name ∈ type_names 的类型）
+    field_rows = [
+        {"name": f.name, "type": er.name, "position": f.position,
+         "sig": sig_by_name.get(f.name, "")}
+        for er in records if er.name in type_names
+        for f in er.fields
+    ]
+    ctor_rows = [
+        {"name": c.name, "type": er.name, "position": c.position,
+         "sig": sig_by_name.get(c.name, "")}
+        for er in records if er.name in type_names
+        for c in er.constructors
+    ]
+
+    # ① 扶正字段节点（MERGE 兜底建点保反向 DEPENDS_ON 边；SET 标签/kind/isExternal/typeSig）
+    for i in range(0, len(field_rows), BATCH):
+        tx.run(
+            "UNWIND $batch AS r MERGE (n:Declaration {name: r.name}) "
+            "ON CREATE SET n.isExternal = true "
+            "SET n:Field, n.kind = 'field', n.isExternal = false, n.typeSignature = r.sig",
+            batch=field_rows[i : i + BATCH],
+        )
+    # ② 扶正构造子节点
+    for i in range(0, len(ctor_rows), BATCH):
+        tx.run(
+            "UNWIND $batch AS r MERGE (n:Declaration {name: r.name}) "
+            "ON CREATE SET n.isExternal = true "
+            "SET n:Constructor, n.kind = 'constructor', n.isExternal = false, n.typeSignature = r.sig",
+            batch=ctor_rows[i : i + BATCH],
+        )
+    # ③ HAS_FIELD 边（类型节点已在 load_declarations 建好；字段节点刚扶正）
+    for i in range(0, len(field_rows), BATCH):
+        tx.run(
+            "UNWIND $batch AS r MATCH (t:Declaration {name:r.type}), "
+            "(f:Declaration {name:r.name}) "
+            "CREATE (t)-[:HAS_FIELD {position:r.position}]->(f)",
+            batch=field_rows[i : i + BATCH],
+        )
+    # ④ HAS_CONSTRUCTOR 边
+    for i in range(0, len(ctor_rows), BATCH):
+        tx.run(
+            "UNWIND $batch AS r MATCH (t:Declaration {name:r.type}), "
+            "(c:Declaration {name:r.name}) "
+            "CREATE (t)-[:HAS_CONSTRUCTOR {position:r.position}]->(c)",
+            batch=ctor_rows[i : i + BATCH],
+        )
+
+
+def load_fields_constructors_chunked(session, records: list, type_names: set[str],
+                                     chunk: int = 2000) -> None:
+    """v2.5 字段/构造子边分块提交，镜像 load_relationships_chunked：避免单巨型事务。
+    全量装载 fields/constructors 量级 ~15 万，分块 2000/事务。
+    """
+    for i in range(0, len(records), chunk):
+        session.execute_write(load_fields_constructors, records[i : i + chunk], type_names)

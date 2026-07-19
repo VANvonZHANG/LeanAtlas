@@ -3,9 +3,9 @@ import os
 import pytest
 
 from mathlib_kg.config import get_config
-from mathlib_kg.load_neo4j import connect, load_declarations, load_dependencies, load_relationships
-from mathlib_kg.models import Declaration, Dep, DeprecatedBy, ExtractRecord, ExtendsItem, ModuleRecord
-from mathlib_kg.neo4j_schema import apply_schema, drop_kg
+from mathlib_kg.load_neo4j import connect, load_declarations, load_dependencies, load_fields_constructors, load_relationships
+from mathlib_kg.models import CtorItem, Declaration, Dep, DeprecatedBy, ExtractRecord, ExtendsItem, FieldItem, ModuleRecord
+from mathlib_kg.neo4j_schema import apply_schema, drop_kg, drop_kg_batched
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("MATHLIB_KG_NEO4J_PASSWORD"), reason="需要 Neo4j 凭据"
@@ -136,4 +136,95 @@ def test_load_relationships_four_edge_types():
         ext_cnt = s.run("MATCH (:Declaration {name:'B'})-[r:EXTENDS]->(:Declaration {name:'A'}) "
                         "RETURN count(r)").single()[0]
         assert ext_cnt == 1
+    driver.close()
+
+
+def test_load_fields_constructors():
+    cfg = get_config()
+    driver = connect()
+    with driver.session(database=cfg.neo4j_db) as s:
+        s.execute_write(drop_kg)
+        s.execute_write(apply_schema)
+        # mathlib 类型 D2（在 type_names）；外部类型 Nat（不在）
+        rec = ModuleRecord(
+            module="M", path="M.lean",
+            declarations=[
+                Declaration(name="StructEdgesFixture.D2", shortName="D2", kind="class",
+                            namespace="", sourceFile="M.lean", startLine=1, endLine=2, sourceText=""),
+            ],
+        )
+        s.execute_write(load_declarations, [rec])
+        type_names = {"StructEdgesFixture.D2"}
+        ext = [
+            # D2：扁平字段（含继承）+ 构造子
+            ExtractRecord(
+                name="StructEdgesFixture.D2", typeSignature="Type",
+                fields=[FieldItem(name="StructEdgesFixture.D2.d1", position=0),
+                        FieldItem(name="StructEdgesFixture.D2.d2", position=1)],
+                constructors=[CtorItem(name="StructEdgesFixture.D2.mk", position=0)]),
+            # 字段/构造子常量自己的记录（带 typeSig，测补写）
+            ExtractRecord(name="StructEdgesFixture.D2.d1", typeSignature="D2 → Nat"),
+            ExtractRecord(name="StructEdgesFixture.D2.d2", typeSignature="D2 → Nat"),
+            ExtractRecord(name="StructEdgesFixture.D2.mk", typeSignature="..."),
+            # 外部类型 Nat：有 fields/constructors 但不在 type_names → 不展开
+            ExtractRecord(
+                name="Nat", typeSignature="Type",
+                fields=[FieldItem(name="Nat.foo", position=0)],
+                constructors=[CtorItem(name="Nat.zero", position=0)]),
+        ]
+        s.execute_write(load_fields_constructors, ext, type_names)
+
+        # HAS_FIELD: D2 -> D2.d1 {position:0}
+        hf = s.run("MATCH (:Declaration {name:'StructEdgesFixture.D2'})-[r:HAS_FIELD]->"
+                   "(:Field {name:'StructEdgesFixture.D2.d1'}) RETURN r.position").single()
+        assert hf is not None and hf[0] == 0
+        # HAS_CONSTRUCTOR: D2 -> D2.mk {position:0}
+        hc = s.run("MATCH (:Declaration {name:'StructEdgesFixture.D2'})-[r:HAS_CONSTRUCTOR]->"
+                   "(:Constructor {name:'StructEdgesFixture.D2.mk'}) RETURN r.position").single()
+        assert hc is not None and hc[0] == 0
+        # 扶正：D2.d1 是 Field 节点，isExternal=false, kind='field', typeSig 补写成功
+        f = s.run("MATCH (n:Field {name:'StructEdgesFixture.D2.d1'}) "
+                  "RETURN n.isExternal, n.kind, n.typeSignature").single()
+        assert f is not None and f[0] is False and f[1] == "field" and f[2] == "D2 → Nat"
+        # 构造子扶正
+        c = s.run("MATCH (n:Constructor {name:'StructEdgesFixture.D2.mk'}) "
+                  "RETURN n.isExternal, n.kind").single()
+        assert c is not None and c[0] is False and c[1] == "constructor"
+        # 外部不展开：Nat 无 HAS_FIELD/HAS_CONSTRUCTOR，Nat.foo 不被建为 Field
+        assert s.run("MATCH (:Declaration {name:'Nat'})-[:HAS_FIELD]->() RETURN count(*)").single()[0] == 0
+        assert s.run("MATCH (:Declaration {name:'Nat'})-[:HAS_CONSTRUCTOR]->() RETURN count(*)").single()[0] == 0
+        assert s.run("MATCH (n:Field {name:'Nat.foo'}) RETURN count(n)").single()[0] == 0
+    driver.close()
+
+
+def test_drop_kg_batched_clears_field_ctor_edges():
+    """v2 教训：drop_kg_batched 清理元组漏边类型 → 删节点时 ConstraintValidationFailed。
+    本测试先造 HAS_FIELD/HAS_CONSTRUCTOR 边，再 batched drop，断言边与节点清零。"""
+    cfg = get_config()
+    driver = connect()
+    with driver.session(database=cfg.neo4j_db) as s:
+        s.execute_write(drop_kg)
+        s.execute_write(apply_schema)
+        rec = ModuleRecord(
+            module="M", path="M.lean",
+            declarations=[Declaration(name="T", shortName="T", kind="class",
+                                      namespace="", sourceFile="M.lean",
+                                      startLine=1, endLine=2, sourceText="")],
+        )
+        s.execute_write(load_declarations, [rec])
+        ext = [
+            ExtractRecord(name="T", typeSignature="Type",
+                          fields=[FieldItem(name="T.f", position=0)],
+                          constructors=[CtorItem(name="T.mk", position=0)]),
+            ExtractRecord(name="T.f", typeSignature="T → Nat"),
+            ExtractRecord(name="T.mk", typeSignature="..."),
+        ]
+        s.execute_write(load_fields_constructors, ext, {"T"})
+        # 此时图有 HAS_FIELD/HAS_CONSTRUCTOR 边 + Field/Constructor 节点
+        assert s.run("MATCH ()-[r:HAS_FIELD]->() RETURN count(r)").single()[0] >= 1
+        # batched drop（生产路径用的清理）必须不抛异常且清零
+        drop_kg_batched(s)
+        assert s.run("MATCH ()-[r:HAS_FIELD]->() RETURN count(r)").single()[0] == 0
+        assert s.run("MATCH ()-[r:HAS_CONSTRUCTOR]->() RETURN count(r)").single()[0] == 0
+        assert s.run("MATCH (n:Declaration) RETURN count(n)").single()[0] == 0
     driver.close()

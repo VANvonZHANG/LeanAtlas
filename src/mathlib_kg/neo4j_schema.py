@@ -45,7 +45,8 @@ def drop_kg_batched(session) -> None:
     while session.run("MATCH ()-[r:DEPENDS_ON]->() RETURN count(r)").single()[0] > 0:
         session.run("MATCH ()-[r:DEPENDS_ON]->() WITH r LIMIT 200000 DELETE r")
     for t in ("IMPORTS", "IN_NAMESPACE", "SUBNAMESPACE_OF", "DEFINED_IN",
-              "EXTENDS", "INSTANTIATES", "DEPRECATED_BY", "HAS_ADDITIVE_VERSION"):
+              "EXTENDS", "INSTANTIATES", "DEPRECATED_BY", "HAS_ADDITIVE_VERSION",
+              "HAS_FIELD", "HAS_CONSTRUCTOR"):
         session.run(f"MATCH ()-[r:{t}]->() DELETE r")
     for label in ("Declaration", "Module", "Namespace"):
         while session.run(f"MATCH (n:{label}) RETURN count(n)").single()[0] > 0:
