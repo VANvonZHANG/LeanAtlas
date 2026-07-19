@@ -326,7 +326,7 @@ def load_relationships(tx, records: list) -> None:
 
 
 def load_fields_constructors(tx, records: list, type_names: set[str],
-                             sig_by_name: dict | None = None) -> None:
+                             sig_by_name: dict[str, str] | None = None) -> None:
     """v2.5：把 mathlib 类型（er.name ∈ type_names）的字段/构造子扶正为 :Field/:Constructor
     节点并挂 HAS_FIELD/HAS_CONSTRUCTOR 边。
 

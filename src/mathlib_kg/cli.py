@@ -80,7 +80,8 @@ def load(
                 d.name for r in recs for d in r.declarations
                 if d.kind in ("structure", "class", "inductive")
             }
-            ldb.load_fields_constructors_chunked(s, erecs, mathlib_type_names)
+            if mathlib_type_names and erecs:
+                ldb.load_fields_constructors_chunked(s, erecs, mathlib_type_names)
     driver.close()
     rprint(f"[green]装载完成: {len(recs)} 模块 -> {cfg.neo4j_db}[/green]")
 
