@@ -94,7 +94,7 @@ def load_topics(path: Path | None) -> list[Topic]:
     try:
         raw = tomllib.loads(Path(path).read_text(encoding="utf-8"))
         topics = [Topic(**item) for item in raw["topic"]]
-    except Exception as exc:  # noqa: BLE001 — 任何解析失败都回退
+    except Exception as exc:  # noqa: BLE001 — any parse failure falls back
         print(f"warn: cannot parse {path} ({exc}); using built-in table", file=sys.stderr)
         return list(DEFAULT_TOPICS)
     if not any(t.id == "_default" for t in topics):
