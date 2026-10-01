@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>mathlib_kg · 模块全景 POC</title>
+<title>mathlib_kg · Module Panorama POC</title>
 <style>
   html, body { margin: 0; height: 100%; background: #0b0e14; color: #e8e8e8;
                font-family: system-ui, -apple-system, sans-serif; }
@@ -12,7 +12,6 @@
   .topic-label { position: absolute; transform: translate(-50%, -50%);
                  font-size: 20px; font-weight: 600; color: #cfd8ff; opacity: .8;
                  text-shadow: 0 0 8px #000, 0 0 3px #000; white-space: nowrap; }
-  .topic-label .zh { font-size: 12px; font-weight: 400; opacity: .7; margin-left: 8px; }
   #hint { position: absolute; left: 12px; bottom: 10px; font-size: 12px; opacity: .6; }
   #err  { position: absolute; inset: 0; display: none; align-items: center;
           justify-content: center; color: #ff8080; font-size: 16px; }
@@ -21,7 +20,7 @@
 <body>
 <div id="container"></div>
 <div id="overlay"></div>
-<div id="hint">滚轮缩放 · 拖拽平移 · 点击节点=高亮直接邻居 · 点击空白复原</div>
+<div id="hint">Scroll to zoom · Drag to pan · Click a node = highlight direct neighbors · Click empty space to reset</div>
 <div id="err"></div>
 
 <script type="module">
@@ -34,20 +33,20 @@ let Sigma, Graph;
 try {
   Sigma = (await import('./vendor/sigma.esm.js')).default;
   Graph = (await import('./vendor/graphology.esm.js')).default;
-} catch (e) { fail('vendor 加载失败（先完成 Task 11 下载）: ' + e); }
+} catch (e) { fail('Failed to load vendor bundles (finish the Task 11 download first): ' + e); }
 
 let data;
 try { data = await (await fetch('data.json')).json(); }
-catch (e) { fail('data.json 加载失败（先跑 mathlib-kg layout）: ' + e); }
-if (data.schemaVersion !== 1) fail('不支持的 schemaVersion: ' + data.schemaVersion);
+catch (e) { fail('Failed to load data.json (run mathlib-kg layout first): ' + e); }
+if (data.schemaVersion !== 1) fail('Unsupported schemaVersion: ' + data.schemaVersion);
 
 const g = new Graph({ type: 'directed', multi: false });
 for (const n of data.nodes) {
   g.addNode(n.name, {
-    x: n.x, y: -n.y,                       // y 取负：让 y 小的带（Probability=20）在上方
-    size: n.r * 2,                         // k=2：渲染参数，非契约
+    x: n.x, y: -n.y,                       // negate y: bands with smaller y (Probability=20) render at the top
+    size: n.r * 2,                         // k=2: render parameter, not part of the contract
     color: n.color,
-    label: n.name.split('.').slice(-2).join('.'),   // 短标签：末两级
+    label: n.name.split('.').slice(-2).join('.'),   // short label: last two name segments
     title: `${n.title ?? n.name}\n${n.declCount} decls · closure ${n.closureSize}`,
   });
 }
@@ -56,7 +55,7 @@ for (const [a, b] of data.edges) {
   if (!g.hasEdge(s, t)) g.addEdge(s, t, { color: '#26304a', size: 0.5 });
 }
 
-// ---- topic 大字：DOM overlay，锚点=该 topic 节点 x 均值 / 带值 y ----
+// ---- topic headings: DOM overlay, anchored at the topic's mean node x / band y ----
 const present = new Set(data.nodes.map(n => n.topic));
 const anchors = data.topics.filter(t => present.has(t.id)).map(t => {
   const xs = data.nodes.filter(n => n.topic === t.id).map(n => n.x);
@@ -66,14 +65,14 @@ const overlay = document.getElementById('overlay');
 const labelEls = anchors.map(a => {
   const d = document.createElement('div');
   d.className = 'topic-label';
-  d.innerHTML = `${a.t.label}<span class="zh">${a.t.labelZh}</span>`;
+  d.textContent = a.t.label;
   overlay.appendChild(d);
   return [a, d];
 });
 
 const container = document.getElementById('container');
 const renderer = new Sigma(g, container, {
-  labelRenderedSizeThreshold: 8,   // 两级 LOD：缩放不足时隐藏节点标签（topic 大字常显）
+  labelRenderedSizeThreshold: 8,   // two-level LOD: hide node labels when zoomed out (topic headings always shown)
   labelDensity: 0.3,
   labelGridCellSize: 60,
   labelColor: { color: '#cfd8ff' },
@@ -82,7 +81,7 @@ const renderer = new Sigma(g, container, {
   defaultNodeType: 'circle',
 });
 
-function refreshOverlay() {        // 世界 → 屏幕；越界隐藏
+function refreshOverlay() {        // world → screen; hide when out of view
   const w = container.clientWidth, h = container.clientHeight;
   for (const [a, d] of labelEls) {
     const p = renderer.graphToViewport({ x: a.x, y: a.y });
@@ -94,7 +93,8 @@ function refreshOverlay() {        // 世界 → 屏幕；越界隐藏
 }
 renderer.on('afterRender', refreshOverlay);
 
-// ---- 点击高亮：自身 + 直接邻居保色，其余暗化（reducer 式，sigma 原生 redraw）----
+// ---- Click highlight: keep self + direct neighbors in color, dim the rest
+// (reducer-style, sigma native redraw) ----
 const DIM_NODE = '#1a2030';
 const origColor = new Map(g.nodes().map(n => [n, g.getNodeAttribute(n, 'color')]));
 function restore() {
@@ -111,9 +111,10 @@ renderer.on('clickNode', ({ node }) => {
 });
 renderer.on('clickStage', () => { selected = null; restore(); });
 
-// ---- hover title 提示 [本地修复·T7 先例]：sigma 3.0.3 无原生 tooltip/title 渲染
-// （vendor 全文 0 处 title/tooltip，canvas 节点也不会触发浏览器原生 title），
-// 故用 enterNode/leaveNode 事件 + 节点 title 属性补一个 DOM 悬浮提示 ----
+// ---- Hover title tooltip [local fix, T7 precedent]: sigma 3.0.3 has no native
+// tooltip/title rendering (zero title/tooltip occurrences in the vendor source, and
+// canvas nodes never trigger the browser's native title), so enterNode/leaveNode
+// events + the node title attribute back a DOM hover tooltip ----
 const tip = document.createElement('div');
 tip.style.cssText =
   'position:fixed;z-index:10;display:none;pointer-events:none;max-width:340px;' +
