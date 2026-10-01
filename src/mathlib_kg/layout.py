@@ -45,43 +45,42 @@ class LayoutCycleError(LayoutError):
 class Topic:
     id: str
     label: str
-    labelZh: str  # noqa: N815 — field name is the JSON contract (same key in data.json/topics.toml)
     y: float
     color: str
 
 
-_FALLBACK_TOPIC = Topic(id="_default", label="Other", labelZh="其他", y=140.0, color="#202020")
+_FALLBACK_TOPIC = Topic(id="_default", label="Other", y=140.0, color="#202020")
 
 # Built-in fallback table (initially identical to web/topics.toml, 27+1 entries;
 # y/color adapted from MathlibExplorer gen_graph.py)
 DEFAULT_TOPICS: tuple[Topic, ...] = (
-    Topic("Tactic", "Tactic", "战术", 40.0, "#404080"),
-    Topic("InformationTheory", "InformationTheory", "信息论", 132.0, "#8000ff"),
-    Topic("Combinatorics", "Combinatorics", "组合数学", 130.0, "#800000"),
-    Topic("GroupTheory", "GroupTheory", "群论", 120.0, "#ff2040"),
-    Topic("FieldTheory", "FieldTheory", "域论", 125.0, "#ffff80"),
-    Topic("RingTheory", "RingTheory", "环论", 115.0, "#ff8000"),
-    Topic("RepresentationTheory", "RepresentationTheory", "表示论", 107.0, "#ff0000"),
-    Topic("Algebra", "Algebra", "代数", 100.0, "#ffff00"),
-    Topic("Init", "Init", "基础", 90.0, "#008040"),
-    Topic("NumberTheory", "NumberTheory", "数论", 90.0, "#800000"),
-    Topic("LinearAlgebra", "LinearAlgebra", "线性代数", 82.0, "#00ff00"),
-    Topic("Order", "Order", "序理论", 85.0, "#804000"),
-    Topic("Logic", "Logic", "逻辑", 75.0, "#0080ff"),
-    Topic("SetTheory", "SetTheory", "集合论", 80.0, "#ff8080"),
-    Topic("Data", "Data", "数据结构", 80.0, "#404040"),
-    Topic("AlgebraicGeometry", "AlgebraicGeometry", "代数几何", 80.0, "#6040ff"),
-    Topic("Computability", "Computability", "可计算性", 75.0, "#bfff00"),
-    Topic("ModelTheory", "ModelTheory", "模型论", 72.0, "#6040ff"),
-    Topic("Geometry", "Geometry", "几何", 70.0, "#ff80ff"),
-    Topic("CategoryTheory", "CategoryTheory", "范畴论", 62.0, "#80a0ff"),
-    Topic("Analysis", "Analysis", "分析", 57.0, "#00ffff"),
-    Topic("AlgebraicTopology", "AlgebraicTopology", "代数拓扑", 48.0, "#6040ff"),
-    Topic("Condensed", "Condensed", "凝聚数学", 48.0, "#ff0000"),
-    Topic("Topology", "Topology", "拓扑", 40.0, "#ff00ff"),
-    Topic("MeasureTheory", "MeasureTheory", "测度论", 30.0, "#8000ff"),
-    Topic("Dynamics", "Dynamics", "动力系统", 25.0, "#008040"),
-    Topic("Probability", "Probability", "概率论", 20.0, "#0000ff"),
+    Topic("Tactic", "Tactic", 40.0, "#404080"),
+    Topic("InformationTheory", "InformationTheory", 132.0, "#8000ff"),
+    Topic("Combinatorics", "Combinatorics", 130.0, "#800000"),
+    Topic("GroupTheory", "GroupTheory", 120.0, "#ff2040"),
+    Topic("FieldTheory", "FieldTheory", 125.0, "#ffff80"),
+    Topic("RingTheory", "RingTheory", 115.0, "#ff8000"),
+    Topic("RepresentationTheory", "RepresentationTheory", 107.0, "#ff0000"),
+    Topic("Algebra", "Algebra", 100.0, "#ffff00"),
+    Topic("Init", "Init", 90.0, "#008040"),
+    Topic("NumberTheory", "NumberTheory", 90.0, "#800000"),
+    Topic("LinearAlgebra", "LinearAlgebra", 82.0, "#00ff00"),
+    Topic("Order", "Order", 85.0, "#804000"),
+    Topic("Logic", "Logic", 75.0, "#0080ff"),
+    Topic("SetTheory", "SetTheory", 80.0, "#ff8080"),
+    Topic("Data", "Data", 80.0, "#404040"),
+    Topic("AlgebraicGeometry", "AlgebraicGeometry", 80.0, "#6040ff"),
+    Topic("Computability", "Computability", 75.0, "#bfff00"),
+    Topic("ModelTheory", "ModelTheory", 72.0, "#6040ff"),
+    Topic("Geometry", "Geometry", 70.0, "#ff80ff"),
+    Topic("CategoryTheory", "CategoryTheory", 62.0, "#80a0ff"),
+    Topic("Analysis", "Analysis", 57.0, "#00ffff"),
+    Topic("AlgebraicTopology", "AlgebraicTopology", 48.0, "#6040ff"),
+    Topic("Condensed", "Condensed", 48.0, "#ff0000"),
+    Topic("Topology", "Topology", 40.0, "#ff00ff"),
+    Topic("MeasureTheory", "MeasureTheory", 30.0, "#8000ff"),
+    Topic("Dynamics", "Dynamics", 25.0, "#008040"),
+    Topic("Probability", "Probability", 20.0, "#0000ff"),
     _FALLBACK_TOPIC,
 )
 
@@ -342,7 +341,7 @@ def build_document(mod: Modules, topo: list[int], topics: list[Topic],
             },
         },
         "topics": [
-            {"id": t.id, "label": t.label, "labelZh": t.labelZh, "y": t.y, "color": t.color}
+            {"id": t.id, "label": t.label, "y": t.y, "color": t.color}
             for t in topics
         ],
         "nodes": nodes,
