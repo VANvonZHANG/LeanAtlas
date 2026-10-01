@@ -11,3 +11,4 @@ build/
 .lake/
 build/
 .superpowers/
+web/data.json

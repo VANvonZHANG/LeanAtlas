@@ -1,9 +1,11 @@
-"""mathlib-kg CLI: parse / load / query / drop."""
+"""mathlib-kg CLI: parse / load / query / drop / layout."""
+import os
 from pathlib import Path
 
 import typer
 from rich import print as rprint
 
+from . import layout as layout_mod
 from . import load_neo4j as ldb
 from . import parse_source
 from .config import get_config
@@ -106,6 +108,31 @@ def drop() -> None:
         drop_kg_batched(s)
     driver.close()
     rprint(f"[yellow]已清空 KG 节点 ({cfg.neo4j_db})[/yellow]")
+
+
+@app.command()
+def layout(
+    structure: Path = typer.Option(Path("structure.jsonl"), "--structure",
+                                   help="structure.jsonl 路径"),
+    out: Path = typer.Option(Path("web/data.json"), "--out", help="输出 data.json 路径"),
+    topics: Path = typer.Option(Path("web/topics.toml"), "--topics", help="泳道表路径"),
+    scope: str = typer.Option("mathlib", "--scope", help="P0 仅支持 mathlib"),
+) -> None:
+    """计算模块级布局并导出 data.json（可视化层 P0）。"""
+    if scope != "mathlib":
+        typer.echo(f"error: --scope {scope} 未实现（P0 仅 mathlib）", err=True)
+        raise typer.Exit(code=2)
+    records, bad = layout_mod.read_structure(structure)
+    topic_list = layout_mod.load_topics(topics)
+    mathlib_path = Path(os.environ.get("MATHLIB_KG_MATHLIB_PATH", "/path/to/mathlib4"))
+    version = layout_mod.describe_mathlib(mathlib_path)
+    doc = layout_mod.run_layout(records, topic_list, version=version)
+    layout_mod.write_document(doc, out)
+    stats = doc["meta"]["stats"]
+    typer.echo(
+        f"layout: modules={stats['modules']} edgesDirect={stats['edgesDirect']} "
+        f"edgesReduced={stats['edgesReduced']} badLines={bad} → {out}"
+    )
 
 
 if __name__ == "__main__":

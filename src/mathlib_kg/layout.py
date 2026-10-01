@@ -5,10 +5,12 @@
 顺序敏感路径禁用 set/dict 迭代，一切顺序 = 拓扑序或名字排序。
 """
 import os
+import subprocess
 import sys
 import tomllib
-from collections import deque
+from collections import Counter, deque
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 import msgspec
@@ -347,3 +349,61 @@ def write_document(doc: dict, out: Path, *, now: str | None = None) -> None:
     tmp = out.with_suffix(out.suffix + ".tmp")
     tmp.write_bytes(msgspec.json.encode(doc))
     os.replace(tmp, out)
+
+
+def read_structure(path: Path) -> tuple[list[ModuleRecord], int]:
+    """逐行（bytes）解码 ModuleRecord；损坏行跳过计数，累计 ≥100 中止。"""
+    decoder = msgspec.json.Decoder(ModuleRecord)
+    records: list[ModuleRecord] = []
+    bad = 0
+    with Path(path).open("rb") as f:   # bytes 按行（勿 splitlines：项目历史坑）
+        for raw in f:
+            line = raw.strip()
+            if not line:
+                continue
+            try:
+                records.append(decoder.decode(line))
+            except msgspec.DecodeError:
+                bad += 1
+                if bad >= 100:
+                    raise LayoutError(f"structure.jsonl: {bad}+ bad lines, aborting")
+    return records, bad
+
+
+def describe_mathlib(path: Path) -> str:
+    """mathlib checkout 的 git describe；失败 → "unknown"（不阻塞）。"""
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(Path(path)), "describe", "--tags", "--always", "--dirty"],
+            capture_output=True, text=True, timeout=10, check=True,
+        )
+        return out.stdout.strip()
+    except Exception:  # noqa: BLE001
+        return "unknown"
+
+
+def run_layout(records: list[ModuleRecord], topics: list[Topic], *,
+               version: str, now: str | None = None) -> dict:
+    """编排全部纯函数；stderr 报告未匹配 topic 清单。确定性：同输入 byte-identical。"""
+    mod = filter_and_build(records)
+    topo = topological_order(mod)
+    closures = compute_closures(mod, topo)
+    node_topics = assign_topics(mod.names, topics)
+    xs, ys = assign_positions(mod, topo, closures, node_topics)
+    rs = radii(pagerank_scores(mod))
+    reduced = transitively_reduce(mod, closures)
+
+    # 未匹配 topic 报告：按二级前缀统计落灰带的模块数（供人工补 topics.toml）
+    prefixes = Counter()
+    for v, t in enumerate(node_topics):
+        if t.id == "_default":
+            parts = mod.names[v].split(".")
+            prefixes[parts[1] if len(parts) > 2 else "(root)"] += 1
+    for prefix, cnt in prefixes.most_common():
+        print(f"unmatched topic: Mathlib.{prefix}.* × {cnt} → _default", file=sys.stderr)
+
+    generated_at = now or datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return build_document(
+        mod, topo, topics, node_topics, xs, ys, rs, reduced, closures,
+        version=version, generated_at=generated_at,
+    )

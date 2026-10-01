@@ -1,4 +1,5 @@
 """layout 纯函数核心的单元测试（无 IO、无 Neo4j/Lean）。"""
+import json as _json
 from pathlib import Path
 
 import pytest
@@ -344,3 +345,65 @@ class TestDocument:
         b1 = _msgspec.json.encode(doc1)
         b2 = _msgspec.json.encode(doc2)
         assert b1 == b2
+
+
+class TestRunAndRead:
+    def test_read_structure_counts_bad_lines(self, tmp_path):
+        from mathlib_kg.layout import read_structure
+        p = tmp_path / "s.jsonl"
+        good = rec("Mathlib.A")
+        lines = [_json.dumps(_json.loads(__import__("msgspec").json.encode(good).decode()))]
+        p.write_text("\n".join(lines + ["{broken", "{also-broken"]) + "\n", encoding="utf-8")
+        records, bad = read_structure(p)
+        assert len(records) == 1 and bad == 2
+
+    def test_read_structure_aborts_at_100_bad_lines(self, tmp_path):
+        from mathlib_kg.layout import LayoutError, read_structure
+        p = tmp_path / "s.jsonl"
+        p.write_text("\n".join(["{bad"] * 100) + "\n", encoding="utf-8")
+        with pytest.raises(LayoutError, match="100"):
+            read_structure(p)
+
+    def test_run_layout_end_to_end_deterministic(self, capsys):
+        from mathlib_kg.layout import run_layout
+        records = [
+            rec("Mathlib.Order.Basic"),
+            rec("Mathlib.Algebra.Group.Defs", ("Mathlib.Order.Basic",), decl_count=5),
+            rec("Archive.Old", ("Mathlib.Order.Basic",)),
+        ]
+        d1 = run_layout(records, list(DEFAULT_TOPICS), version="v1", now="2026-01-01T00:00:00")
+        d2 = run_layout(records, list(DEFAULT_TOPICS), version="v1", now="2026-01-01T00:00:00")
+        assert __import__("msgspec").json.encode(d1) == __import__("msgspec").json.encode(d2)
+        assert d1["meta"]["stats"]["modules"] == 2          # Archive 被滤掉
+        names = [nd["name"] for nd in d1["nodes"]]
+        assert names[0] == "Mathlib.Order.Basic"            # 拓扑序首位
+        # 未匹配 topic 报告出现在 stderr（Order/Algebra 均在表内 → 构造一个落灰带的）
+        recs2 = [rec("Mathlib.Experiment.Foo", ("Mathlib.Order.Basic",))]
+        run_layout(recs2, list(DEFAULT_TOPICS), version="v1", now="t")
+        err = capsys.readouterr().err
+        assert "Experiment" in err
+
+    def test_cli_layout_command(self, tmp_path, monkeypatch):
+        from typer.testing import CliRunner
+
+        from mathlib_kg.cli import app
+        p = tmp_path / "s.jsonl"
+        import msgspec as _m
+        p.write_bytes(_m.json.encode(rec("Mathlib.A")).replace(b"}", b"}\n"))
+        out = tmp_path / "data.json"
+        topics_f = tmp_path / "t.toml"
+        topics_f.write_text('[[topic]]\nid="_default"\nlabel="Other"\nlabelZh="其他"\ny=140.0\ncolor="#202020"\n', encoding="utf-8")
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "layout", "--structure", str(p), "--out", str(out), "--topics", str(topics_f),
+        ])
+        assert result.exit_code == 0, result.output
+        assert out.exists()
+
+    def test_cli_layout_rejects_unknown_scope(self, tmp_path):
+        from typer.testing import CliRunner
+
+        from mathlib_kg.cli import app
+        runner = CliRunner()
+        result = runner.invoke(app, ["layout", "--scope", "all"])
+        assert result.exit_code == 2
