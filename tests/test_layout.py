@@ -12,6 +12,8 @@ from mathlib_kg.layout import (
     compute_closures,
     filter_and_build,
     load_topics,
+    pagerank_scores,
+    radii,
     topological_order,
     transitively_reduce,
 )
@@ -191,3 +193,26 @@ class TestReduction:
             assert seen_closures[v] == {
                 u for u in range(len(mods.names)) if (closures[v] >> u) & 1
             }
+
+
+class TestPageRank:
+    def test_hub_ranks_above_leaves(self):
+        # A 被 B 依赖，B 被 C 依赖：A > B > C（排序性质，不断言精确值）
+        mods = filter_and_build([
+            rec("Mathlib.C", ("Mathlib.B",)),
+            rec("Mathlib.B", ("Mathlib.A",)),
+            rec("Mathlib.A"),
+        ])
+        i = mods.index
+        scores = pagerank_scores(mods)
+        assert scores[i["Mathlib.A"]] > scores[i["Mathlib.B"]] > scores[i["Mathlib.C"]]
+
+    def test_radii_bounds_and_shape(self):
+        rs = radii([0.0, 0.25, 1.0])
+        assert rs[0] == pytest.approx(0.2)
+        assert rs[1] == pytest.approx(0.2 + 3 * 0.5)
+        assert rs[2] == pytest.approx(3.2)
+
+    def test_radii_single_node(self):
+        # min==max 时归一化分母回退为 1.0，半径 = 0.2
+        assert radii([0.5]) == [pytest.approx(0.2)]

@@ -199,3 +199,39 @@ def transitively_reduce(mod: Modules, closures: list[int]) -> list[list[int]]:
                 keep.append(a)
         reduced.append(sorted(keep))
     return reduced
+
+
+def pagerank_scores(mod: Modules, alpha: float = 0.85, max_iter: int = 30,
+                    tol: float = 1e-6) -> list[float]:
+    """地基性 PageRank：importer 把 rank 均分给它 import 的模块（= nx.pagerank(G.reverse()) 语义）。"""
+    n = len(mod.names)
+    if n == 0:
+        return []
+    rank = [1.0 / n] * n
+    for _ in range(max_iter):
+        nxt = [(1.0 - alpha) / n] * n
+        dangling = sum(rank[i] for i in range(n) if not mod.deps[i])
+        if dangling:
+            share = alpha * dangling / n
+            nxt = [x + share for x in nxt]
+        for i in range(n):
+            di = mod.deps[i]
+            if not di:
+                continue
+            give = alpha * rank[i] / len(di)
+            for d in di:
+                nxt[d] += give
+        delta = sum(abs(nxt[i] - rank[i]) for i in range(n))
+        rank = nxt
+        if delta < tol:
+            break
+    return rank
+
+
+def radii(scores: list[float]) -> list[float]:
+    """r = 0.2 + 3·√t（面积感知：面积 ∝ PageRank）。"""
+    if not scores:
+        return []
+    lo, hi = min(scores), max(scores)
+    rng = (hi - lo) or 1.0
+    return [0.2 + 3.0 * ((s - lo) / rng) ** 0.5 for s in scores]
