@@ -235,3 +235,48 @@ def radii(scores: list[float]) -> list[float]:
     lo, hi = min(scores), max(scores)
     rng = (hi - lo) or 1.0
     return [0.2 + 3.0 * ((s - lo) / rng) ** 0.5 for s in scores]
+
+
+def _zig(slot: int) -> int:
+    """锯齿位移序列：0, +1, -1, +2, -2, …"""
+    if slot == 0:
+        return 0
+    d = (slot + 1) // 2
+    return d if slot % 2 == 1 else -d
+
+
+def assign_positions(mod: Modules, topo: list[int], closures: list[int],
+                     node_topics: list[Topic]) -> tuple[list[float], list[float]]:
+    """x = |closure|^0.72（零闭包按拓扑序散布 -0..-9 循环）；
+    y = 带值 → 列内同 topic 直接依赖平均 → 确定性锯齿槽位。"""
+    n = len(mod.names)
+    xs = [float(closures[i].bit_count()) ** 0.72 for i in range(n)]
+    k = 0
+    for v in topo:                          # 拓扑序分配（确定性）
+        if closures[v].bit_count() == 0:
+            xs[v] = float(-(k % 10))
+            k += 1
+    ys = [float(t.y) for t in node_topics]
+    columns: dict[int, list[int]] = {}
+    for v in topo:                          # 列内元素按拓扑序进入
+        columns.setdefault(int(xs[v]), []).append(v)
+    for col in sorted(columns):             # 列处理顺序 = 列值升序（确定性）
+        used: dict[int, bool] = {}
+        for b in columns[col]:
+            tb_id = node_topics[b].id
+            vals = [ys[b]] + [ys[d] for d in mod.deps[b] if node_topics[d].id == tb_id]
+            avg = sum(vals) / len(vals)
+            base = int(avg)
+            slot = 0
+            probe = base + _zig(slot)
+            while used.get(probe, False):
+                slot += 1
+                probe = base + _zig(slot)
+                if slot > 20000:            # 安全阀：顺延到最高占用槽之上
+                    probe = (max(used) + 1) if used else base
+                    while used.get(probe, False):
+                        probe += 1
+                    break
+            ys[b] = avg + (probe - base)
+            used[probe] = True
+    return xs, ys

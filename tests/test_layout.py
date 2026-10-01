@@ -8,7 +8,9 @@ from mathlib_kg.layout import (
     LayoutCycleError,
     LayoutError,
     Topic,
+    assign_positions,
     assign_topic,
+    assign_topics,
     compute_closures,
     filter_and_build,
     load_topics,
@@ -216,3 +218,56 @@ class TestPageRank:
     def test_radii_single_node(self):
         # min==max 时归一化分母回退为 1.0，半径 = 0.2
         assert radii([0.5]) == [pytest.approx(0.2)]
+
+
+class TestPositions:
+    def _setup(self, specs: dict[str, tuple[str, ...]], topics=None):
+        mods = filter_and_build([rec(n, imps) for n, imps in specs.items()])
+        topo = topological_order(mods)
+        closures = compute_closures(mods, topo)
+        node_topics = assign_topics(mods.names, list(topics or DEFAULT_TOPICS))
+        return mods, topo, closures, node_topics
+
+    def test_x_monotone_along_dependency(self):
+        specs = {
+            "Mathlib.A": (),
+            "Mathlib.B": ("Mathlib.A",),
+            "Mathlib.C": ("Mathlib.A", "Mathlib.B"),
+            "Mathlib.D": ("Mathlib.C",),
+        }
+        mods, topo, closures, nt = self._setup(specs)
+        xs, _ = assign_positions(mods, topo, closures, nt)
+        i = mods.index
+        assert xs[i["Mathlib.D"]] > xs[i["Mathlib.C"]] > xs[i["Mathlib.B"]] > xs[i["Mathlib.A"]] >= 0
+
+    def test_zero_closure_spread_neg_columns(self):
+        specs = {f"Mathlib.Util.K{k}": () for k in range(12)}
+        mods, topo, closures, nt = self._setup(specs)
+        xs, ys = assign_positions(mods, topo, closures, nt)
+        zeros = [xs[i] for i in range(len(mods.names)) if closures[i].bit_count() == 0]
+        assert zeros == [0.0, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, 0.0, -1.0]
+
+    def test_same_column_nodes_get_distinct_slots(self):
+        # 同列同 topic 的多个节点：锯齿槽位保证整数槽互不重叠。
+        # 注：零闭包节点被散布到不同 x 列，故须用等大闭包（B/C/D 闭包=1，
+        # D 闭包=2→int(2^0.72)=1）构造真正的同列；A 独占 col 0 作对照。
+        specs = {
+            "Mathlib.Data.A": (),
+            "Mathlib.Order.B": ("Mathlib.Data.A",),
+            "Mathlib.Order.C": ("Mathlib.Data.A",),
+            "Mathlib.Order.D": ("Mathlib.Data.A", "Mathlib.Order.B"),
+        }
+        mods, topo, closures, nt = self._setup(specs)
+        xs, ys = assign_positions(mods, topo, closures, nt)
+        slots = sorted(int(y) for y in ys)
+        assert len(set(slots)) == 4
+
+    def test_deterministic(self):
+        specs = {
+            "Mathlib.Order.A": (),
+            "Mathlib.Order.B": ("Mathlib.Order.A",),
+            "Mathlib.Algebra.C": ("Mathlib.Order.A",),
+        }
+        r1 = assign_positions(*self._setup(specs))
+        r2 = assign_positions(*self._setup(specs))
+        assert r1 == r2
