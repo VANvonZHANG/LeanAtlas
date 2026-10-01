@@ -1,6 +1,5 @@
-"""layout 纯函数核心的单元测试（无 IO、无 Neo4j/Lean）。"""
+"""layout 单元测试：纯函数核心 + read_structure/CLI 的 tmp-path IO 测试（无 Neo4j/Lean）。"""
 import json as _json
-from pathlib import Path
 
 import pytest
 
@@ -56,8 +55,10 @@ class TestBands:
     def test_load_topics_reads_toml(self, tmp_path):
         p = tmp_path / "t.toml"
         p.write_text(
-            '[[topic]]\nid = "Tactic"\nlabel = "Tactic"\nlabelZh = "战术"\ny = 40.0\ncolor = "#404080"\n'
-            '[[topic]]\nid = "_default"\nlabel = "Other"\nlabelZh = "其他"\ny = 140.0\ncolor = "#202020"\n',
+            '[[topic]]\nid = "Tactic"\nlabel = "Tactic"\nlabelZh = "战术"\n'
+            'y = 40.0\ncolor = "#404080"\n'
+            '[[topic]]\nid = "_default"\nlabel = "Other"\nlabelZh = "其他"\n'
+            'y = 140.0\ncolor = "#202020"\n',
             encoding="utf-8",
         )
         got = load_topics(p)
@@ -101,7 +102,8 @@ class TestFilterAndBuild:
             rec("Archive.Examples.Foo", ("Mathlib.Order.Basic",)),
             rec("Counterexamples.X", ("Mathlib.Data.Nat.Basic",)),
             rec("Mathlib.Order.Basic"),
-            rec("Mathlib.Algebra.Group.Defs", ("Mathlib.Order.Basic", "Lean.Core", "Mathlib.Order.Basic")),
+            rec("Mathlib.Algebra.Group.Defs",
+                ("Mathlib.Order.Basic", "Lean.Core", "Mathlib.Order.Basic")),
         ])
         assert mods.names == ["Mathlib.Algebra.Group.Defs", "Mathlib.Order.Basic"]  # 名字序
         assert mods.index["Mathlib.Order.Basic"] == 1
@@ -241,7 +243,8 @@ class TestPositions:
         mods, topo, closures, nt = self._setup(specs)
         xs, _ = assign_positions(mods, topo, closures, nt)
         i = mods.index
-        assert xs[i["Mathlib.D"]] > xs[i["Mathlib.C"]] > xs[i["Mathlib.B"]] > xs[i["Mathlib.A"]] >= 0
+        assert (xs[i["Mathlib.D"]] > xs[i["Mathlib.C"]]
+                > xs[i["Mathlib.B"]] > xs[i["Mathlib.A"]] >= 0)
 
     def test_zero_closure_spread_neg_columns(self):
         specs = {f"Mathlib.Util.K{k}": () for k in range(12)}
@@ -291,7 +294,8 @@ class TestDocument:
         xs, ys = assign_positions(mods, topo, closures, node_topics)
         rs = radii(pagerank_scores(mods))
         reduced = transitively_reduce(mods, closures)
-        doc = build_document(mods, topo, list(DEFAULT_TOPICS), node_topics, xs, ys, rs, reduced, closures,
+        doc = build_document(mods, topo, list(DEFAULT_TOPICS), node_topics,
+                             xs, ys, rs, reduced, closures,
                              version="v0-test", generated_at="2026-01-01T00:00:00")
         return mods, doc
 
@@ -315,7 +319,6 @@ class TestDocument:
         assert doc["meta"]["stats"]["edgesReduced"] == len(doc["edges"])
 
     def test_docstring_truncated_to_1000(self):
-        specs = {"Mathlib.A": ()}
         mods = filter_and_build([rec("Mathlib.A", (), doc="x" * 5000)])
         topo = topological_order(mods)
         closures = compute_closures(mods, topo)
@@ -323,7 +326,8 @@ class TestDocument:
         xs, ys = assign_positions(mods, topo, closures, node_topics)
         rs = radii(pagerank_scores(mods))
         reduced = transitively_reduce(mods, closures)
-        doc = build_document(mods, topo, list(DEFAULT_TOPICS), node_topics, xs, ys, rs, reduced, closures,
+        doc = build_document(mods, topo, list(DEFAULT_TOPICS), node_topics,
+                             xs, ys, rs, reduced, closures,
                              version="v", generated_at="t")
         assert len(doc["nodes"][0]["docstring"]) == 1000
 
@@ -415,7 +419,9 @@ class TestRunAndRead:
         p.write_bytes(_m.json.encode(rec("Mathlib.A")).replace(b"}", b"}\n"))
         out = tmp_path / "data.json"
         topics_f = tmp_path / "t.toml"
-        topics_f.write_text('[[topic]]\nid="_default"\nlabel="Other"\nlabelZh="其他"\ny=140.0\ncolor="#202020"\n', encoding="utf-8")
+        topics_f.write_text(
+            '[[topic]]\nid="_default"\nlabel="Other"\nlabelZh="其他"\n'
+            'y=140.0\ncolor="#202020"\n', encoding="utf-8")
         runner = CliRunner()
         result = runner.invoke(app, [
             "layout", "--structure", str(p), "--out", str(out), "--topics", str(topics_f),

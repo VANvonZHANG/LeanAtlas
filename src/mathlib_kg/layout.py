@@ -10,7 +10,7 @@ import sys
 import tomllib
 from collections import Counter, deque
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import msgspec
@@ -42,14 +42,15 @@ class LayoutCycleError(LayoutError):
 class Topic:
     id: str
     label: str
-    labelZh: str
+    labelZh: str  # noqa: N815 — 字段名即 JSON 契约（与 data.json/topics.toml 同名）
     y: float
     color: str
 
 
 _FALLBACK_TOPIC = Topic(id="_default", label="Other", labelZh="其他", y=140.0, color="#202020")
 
-# 内建 fallback 表（初始 = web/topics.toml 同款，27+1 条；y/color 改编自 MathlibExplorer gen_graph.py）
+# 内建 fallback 表（初始 = web/topics.toml 同款，27+1 条；
+# y/color 改编自 MathlibExplorer gen_graph.py）
 DEFAULT_TOPICS: tuple[Topic, ...] = (
     Topic("Tactic", "Tactic", "战术", 40.0, "#404080"),
     Topic("InformationTheory", "InformationTheory", "信息论", 132.0, "#8000ff"),
@@ -208,7 +209,8 @@ def transitively_reduce(mod: Modules, closures: list[int]) -> list[list[int]]:
 
 def pagerank_scores(mod: Modules, alpha: float = 0.85, max_iter: int = 30,
                     tol: float = 1e-6) -> list[float]:
-    """地基性 PageRank：importer 把 rank 均分给它 import 的模块（= nx.pagerank(G.reverse()) 语义）。"""
+    """地基性 PageRank：importer 把 rank 均分给它 import 的模块
+    （= nx.pagerank(G.reverse()) 语义）。"""
     n = len(mod.names)
     if n == 0:
         return []
@@ -402,7 +404,7 @@ def run_layout(records: list[ModuleRecord], topics: list[Topic], *,
     for prefix, cnt in prefixes.most_common():
         print(f"unmatched topic: Mathlib.{prefix}.* × {cnt} → _default", file=sys.stderr)
 
-    generated_at = now or datetime.now(timezone.utc).isoformat(timespec="seconds")
+    generated_at = now or datetime.now(UTC).isoformat(timespec="seconds")
     return build_document(
         mod, topo, topics, node_topics, xs, ys, rs, reduced, closures,
         version=version, generated_at=generated_at, skipped_bad_lines=skipped_bad_lines,
