@@ -111,7 +111,7 @@ def test_extract_record_additive_version_roundtrip():
 
 
 def test_extract_record_new_fields_default_when_absent():
-    # 旧格式 JSON（无新字段）仍可解码，新字段取默认
+    # Old-format JSON (without the new fields) still decodes; new fields take defaults
     legacy = '{"name":"X","typeSignature":"T","deps":[]}'
     back = extract_from_json(legacy)
     assert back.extends == []
@@ -154,7 +154,8 @@ def test_extract_record_constructors_roundtrip():
 
 
 def test_extract_record_fields_ctors_default_when_absent():
-    # 旧格式 JSON（无 fields/constructors）仍可解码，新字段取默认空列表
+    # Old-format JSON (without fields/constructors) still decodes; new fields
+    # default to empty lists
     legacy = '{"name":"X","typeSignature":"T","deps":[]}'
     back = extract_from_json(legacy)
     assert back.fields == []

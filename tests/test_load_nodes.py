@@ -9,7 +9,7 @@ from mathlib_kg.models import Declaration, Import, ModuleRecord
 from mathlib_kg.neo4j_schema import apply_schema, drop_kg
 
 pytestmark = pytest.mark.skipif(
-    not os.environ.get("MATHLIB_KG_NEO4J_PASSWORD"), reason="需要 Neo4j 凭据"
+    not os.environ.get("MATHLIB_KG_NEO4J_PASSWORD"), reason="requires Neo4j credentials"
 )
 
 
@@ -64,6 +64,6 @@ def test_load_nodes():
             ).single()[0]
             == 1
         )
-        # SUBNAMESPACE_OF: NS 自身无父；这里仅 1 个命名空间
+        # SUBNAMESPACE_OF: NS itself has no parent; there is only 1 namespace here
         assert s.run("MATCH ()-[:SUBNAMESPACE_OF]->() RETURN count(*)").single()[0] == 0
     driver.close()

@@ -1,6 +1,7 @@
-"""端到端验收测试：在 Init.Data.Nat.Basic 上跑通 parse → extract → load → query。
+"""End-to-end acceptance test: parse → extract → load → query on
+Init.Data.Nat.Basic.
 
-默认跳过（需 Lean 抽取 + Neo4j）。启用：
+Skipped by default (needs Lean extraction + Neo4j). Enable:
   export MATHLIB_KG_NEO4J_USER=neo4j MATHLIB_KG_NEO4J_PASSWORD=... MATHLIB_KG_NEO4J_DB=neo4j
   export MATHLIB_KG_RUN_ACCEPTANCE=1
   pytest tests/test_acceptance.py -v -s
@@ -20,7 +21,7 @@ from mathlib_kg.parse_source import parse_file
 pytestmark = pytest.mark.skipif(
     os.environ.get("MATHLIB_KG_RUN_ACCEPTANCE") != "1"
     or not os.environ.get("MATHLIB_KG_NEO4J_PASSWORD"),
-    reason="需要 MATHLIB_KG_RUN_ACCEPTANCE=1 与 Neo4j 凭据",
+    reason="requires MATHLIB_KG_RUN_ACCEPTANCE=1 and Neo4j credentials",
 )
 
 REPO = Path(__file__).resolve().parents[1]
@@ -39,14 +40,14 @@ def test_init_end_to_end(tmp_path):
     assert len(rec.declarations) >= 3
     struct.write_text(module_to_json(rec) + "\n", encoding="utf-8")
 
-    # 2) extract（真实 Lean 抽取）
+    # 2) extract (real Lean extraction)
     with extract.open("w") as f:
         subprocess.run(
             ["lake", "exe", "extract", "Init.Data.Nat.Basic"],
             cwd=EXTRACT_DIR, stdout=f, check=True,
         )
     recs = [json.loads(ln) for ln in extract.read_text().splitlines() if ln.strip()]
-    assert len(recs) > 1000  # 完整闭包
+    assert len(recs) > 1000  # full closure
 
     # 3) load
     subprocess.run(["python", "-m", "mathlib_kg.cli", "drop"], cwd=REPO, check=True)
@@ -56,19 +57,19 @@ def test_init_end_to_end(tmp_path):
         cwd=REPO, check=True,
     )
 
-    # 4) 验收查询
+    # 4) Acceptance queries
     cfg = get_config()
     driver = GraphDatabase.driver(cfg.neo4j_uri, auth=(cfg.neo4j_user, cfg.neo4j_password))
     try:
         with driver.session(database=cfg.neo4j_db) as s:
             assert s.run("MATCH ()-[r:DEPENDS_ON]->() RETURN count(r)").single()[0] > 0
-            # 解析出的声明通过 name-merge 拿到了 extract 的 typeSignature
+            # Parsed declarations got the extract typeSignature via name-merge
             matched = s.run(
                 "MATCH (d:Declaration) WHERE d.name='Nat.recCompiled' "
                 "AND d.typeSignature IS NOT NULL RETURN count(d)"
             ).single()[0]
             assert matched == 1
-            # 反向依赖闭包
+            # Reverse dependency closure
             rev = s.run(
                 "MATCH (:Declaration {name:'Nat'})<-[:DEPENDS_ON*1..4]-(d) "
                 "RETURN count(DISTINCT d)"

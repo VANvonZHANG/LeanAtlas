@@ -1,6 +1,7 @@
-"""Golden test for Extract.lean lake exe（默认跳过：LEAN 抽取较慢）。
+"""Golden test for the Extract.lean lake exe (skipped by default: LEAN
+extraction is slow).
 
-启用：export MATHLIB_KG_SKIP_LEAN=0
+Enable: export MATHLIB_KG_SKIP_LEAN=0
 """
 import json
 import os
@@ -13,7 +14,7 @@ EXTRACT_DIR = Path(__file__).resolve().parents[1] / "extract"
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("MATHLIB_KG_SKIP_LEAN", "1") == "1",
-    reason="LEAN 抽取较慢，默认跳过；设 MATHLIB_KG_SKIP_LEAN=0 启用",
+    reason="LEAN extraction is slow, skipped by default; set MATHLIB_KG_SKIP_LEAN=0 to enable",
 )
 
 
@@ -31,82 +32,97 @@ def _run_extract(module: str) -> list[dict]:
 def test_extract_init_nat_basic():
     recs = _run_extract("Init.Data.Nat.Basic")
     by_name = {r["name"]: r for r in recs}
-    # 结构完整
+    # Structural completeness
     for r in recs[:30]:
         assert "name" in r
         assert "typeSignature" in r
         assert "deps" in r
         for d in r["deps"]:
             assert {"name", "inType", "inValue"} <= set(d.keys())
-    # 每条有非空 typeSignature
+    # Every record has a non-empty typeSignature
     assert all(r["typeSignature"] for r in recs[:30])
-    # 至少有一些声明带有依赖
+    # At least some declarations carry dependencies
     assert sum(1 for r in recs if r["deps"]) > 0
 
 
 def test_extract_struct_edges_fixture():
-    """v2: EXTENDS/INSTANTIATES 是硬断言；
-    DEPRECATED_BY/HAS_ADDITIVE_VERSION 是软断言（attr 表若 v4.30.0 不可读则跳过，见 spec D12）。
+    """v2: EXTENDS/INSTANTIATES are hard assertions;
+    DEPRECATED_BY/HAS_ADDITIVE_VERSION are soft assertions (skipped when the
+    attr tables are unreadable on v4.30.0, see spec D12).
     """
-    # 先构建 fixture 模块（mathlib 已构建，构建一个 tiny 模块约数十秒）
+    # Build the fixture module first (mathlib is already built; building one
+    # tiny module takes tens of seconds)
     subprocess.run(["lake", "build", "StructEdgesFixture"], cwd=EXTRACT_DIR, check=True,
                    capture_output=True, text=True)
     recs = _run_extract("StructEdgesFixture")
     by_name = {r["name"]: r for r in recs}
 
-    # EXTENDS：B extends A（硬断言）
+    # EXTENDS: B extends A (hard assertion)
     b = by_name["StructEdgesFixture.B"]
     assert {"parent": "StructEdgesFixture.A", "position": 0} in b["extends"]
 
-    # INSTANTIATES：instB 的类型头是 B（硬断言）
+    # INSTANTIATES: instB's type head is B (hard assertion)
     inst = by_name["StructEdgesFixture.instB"]
     assert inst["instantiates"] == "StructEdgesFixture.B"
 
-    # INSTANTIATES 回归：参数化 instance instC 的类型是 `∀ (α : Type), C α`，
-    # 旧代码 getAppFn 不下穿 forallE，head 取不到 → instantiates:null（边被丢）。
-    # 这里硬断言剥 Pi 后能拿到 C（spec: INSTANTIATES Pi-binder bug 回归）。
+    # INSTANTIATES regression: the parameterized instance instC has type
+    # `∀ (α : Type), C α`; the old getAppFn did not descend past forallE, so the
+    # head was unreachable → instantiates:null (edge dropped). Here we hard-
+    # assert C is reachable after stripping Pi binders (spec: INSTANTIATES
+    # Pi-binder bug regression).
     inst_c = by_name["StructEdgesFixture.instC"]
     assert inst_c["instantiates"] == "StructEdgesFixture.C"
 
-    # DEPRECATED_BY：oldB → newB（软断言：attr 表可读时严格断言目标名）
+    # DEPRECATED_BY: oldB → newB (soft assertion: strictly assert the target
+    # name when the attr tables are readable)
     oldb = by_name["StructEdgesFixture.oldB"]
     if oldb.get("deprecatedBy"):
         assert oldb["deprecatedBy"]["replacement"] == "StructEdgesFixture.newB"
         assert oldb["deprecatedBy"]["since"] == "2024-01-01"
 
-    # HAS_ADDITIVE_VERSION：foo → addFoo（软断言：attr 表可读时严格断言目标名）
+    # HAS_ADDITIVE_VERSION: foo → addFoo (soft assertion: strictly assert the
+    # target name when the attr tables are readable)
     foo = by_name["StructEdgesFixture.foo"]
     if foo.get("additiveVersion"):
         assert foo["additiveVersion"] == "StructEdgesFixture.addFoo"
 
 
 def test_extract_fields_constructors_fixture():
-    """v2.5: HAS_FIELD（扁平含继承）+ HAS_CONSTRUCTOR（多构造子 + position）。"""
-    # 先构建 fixture（含新增 D1/D2/Foo，增量构建数十秒）
+    """v2.5: HAS_FIELD (flattened, including inherited) + HAS_CONSTRUCTOR
+    (multiple constructors + position)."""
+    # Build the fixture first (includes the new D1/D2/Foo; incremental build
+    # takes tens of seconds)
     subprocess.run(["lake", "build", "StructEdgesFixture"], cwd=EXTRACT_DIR, check=True,
                    capture_output=True, text=True)
     recs = _run_extract("StructEdgesFixture")
     by_name = {r["name"]: r for r in recs}
     all_names = set(by_name.keys())
 
-    # --- HAS_FIELD（扁平，含继承）---
+    # --- HAS_FIELD (flattened, including inherited) ---
     d2 = by_name["StructEdgesFixture.D2"]
     field_names = {f["name"] for f in d2["fields"]}
-    # 硬断言（Step 2 实证）：
-    #   - 自有字段 d2 → 投影 StructEdgesFixture.D2.d2
-    #   - 继承字段 d1 → Lean 复用父结构投影 StructEdgesFixture.D1.d1（非子合成 D2.d1）
-    #   - 子对象强转 → StructEdgesFixture.D2.toD1（getStructureFieldsFlattened 默认 includeSubobjectFields）
+    # Hard assertions (established in Step 2):
+    #   - own field d2 → projection StructEdgesFixture.D2.d2
+    #   - inherited field d1 → Lean reuses the parent structure projection
+    #     StructEdgesFixture.D1.d1 (not a child-synthesized D2.d1)
+    #   - subobject coercion → StructEdgesFixture.D2.toD1
+    #     (getStructureFieldsFlattened defaults to includeSubobjectFields)
     assert "StructEdgesFixture.D2.d2" in field_names
-    assert "StructEdgesFixture.D1.d1" in field_names, f"继承字段缺失，实际 fields={field_names}"
+    assert "StructEdgesFixture.D1.d1" in field_names, \
+        f"inherited field missing, actual fields={field_names}"
     assert "StructEdgesFixture.D2.toD1" in field_names
-    # 交叉验证（防拼名错误）：每个 field 名都必须是 env 里真实存在的常量（出现在 extract 全部记录里）
+    # Cross-check (guards against name-splicing errors): every field name must
+    # be a real constant in the env (present among all extract records)
     missing = field_names - all_names
-    assert missing == set(), f"fields 拼出名不在 env 常量集：{missing}（回 Step 2 核对 getStructureFieldsFlattened 返回格式）"
-    # position 单调（0..n-1，无重复）
+    assert missing == set(), (
+        f"fields names not in the env constant set: {missing} "
+        "(go back to Step 2 and check getStructureFieldsFlattened's return format)"
+    )
+    # position is monotone (0..n-1, no duplicates)
     positions = [f["position"] for f in d2["fields"]]
     assert positions == list(range(len(positions)))
 
-    # --- HAS_CONSTRUCTOR（structure 的 mk + inductive 多构造子）---
+    # --- HAS_CONSTRUCTOR (structure mk + inductive multiple constructors) ---
     d2c = by_name["StructEdgesFixture.D2"]
     assert [c["name"] for c in d2c["constructors"]] == ["StructEdgesFixture.D2.mk"]
     assert [c["position"] for c in d2c["constructors"]] == [0]
@@ -115,6 +131,6 @@ def test_extract_fields_constructors_fixture():
     ctor_names = {c["name"] for c in foo["constructors"]}
     assert ctor_names == {"StructEdgesFixture.Foo.c1", "StructEdgesFixture.Foo.c2"}
     assert sorted(c["position"] for c in foo["constructors"]) == [0, 1]
-    # 非类型常量（如 instB）不应有 fields/constructors
+    # Non-type constants (e.g. instB) must not have fields/constructors
     inst = by_name["StructEdgesFixture.instB"]
     assert inst["fields"] == [] and inst["constructors"] == []

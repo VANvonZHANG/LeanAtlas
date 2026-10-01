@@ -26,7 +26,7 @@ def test_parse_declarations_basic():
     assert "simp" in foo.attrs
     assert foo.docstring == "doc"
     assert foo.startLine == 5
-    assert foo.endLine == 7  # def 行（排他上界）
+    assert foo.endLine == 7  # the def line (exclusive upper bound)
     assert "theorem foo" in foo.sourceText
     bar = decls[1]
     assert bar.name == "Quandles.bar"

@@ -11,7 +11,7 @@ def test_config_defaults(monkeypatch):
         monkeypatch.delenv(k, raising=False)
     cfg = get_config()
     assert cfg.neo4j_uri == "bolt://localhost:7687"
-    assert cfg.neo4j_db == "neo4j"  # 社区版用默认库
+    assert cfg.neo4j_db == "neo4j"  # Community Edition uses the default database
     assert cfg.mathlib_path == "/path/to/mathlib4"
     assert cfg.neo4j_user == ""
     assert cfg.neo4j_password == ""

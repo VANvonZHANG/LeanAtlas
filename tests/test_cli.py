@@ -7,7 +7,7 @@ from mathlib_kg.cli import app
 
 runner = CliRunner()
 pytestmark = pytest.mark.skipif(
-    not os.environ.get("MATHLIB_KG_NEO4J_PASSWORD"), reason="需要 Neo4j 凭据"
+    not os.environ.get("MATHLIB_KG_NEO4J_PASSWORD"), reason="requires Neo4j credentials"
 )
 
 

@@ -8,7 +8,7 @@ from mathlib_kg.models import Import, ModuleRecord
 from mathlib_kg.neo4j_schema import apply_schema, drop_kg
 
 pytestmark = pytest.mark.skipif(
-    not os.environ.get("MATHLIB_KG_NEO4J_PASSWORD"), reason="需要 Neo4j 凭据"
+    not os.environ.get("MATHLIB_KG_NEO4J_PASSWORD"), reason="requires Neo4j credentials"
 )
 
 
