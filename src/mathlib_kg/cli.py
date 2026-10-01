@@ -113,14 +113,14 @@ def drop() -> None:
 @app.command()
 def layout(
     structure: Path = typer.Option(Path("structure.jsonl"), "--structure",
-                                   help="structure.jsonl 路径"),
-    out: Path = typer.Option(Path("web/data.json"), "--out", help="输出 data.json 路径"),
-    topics: Path = typer.Option(Path("web/topics.toml"), "--topics", help="泳道表路径"),
-    scope: str = typer.Option("mathlib", "--scope", help="P0 仅支持 mathlib"),
+                                   help="path to structure.jsonl"),
+    out: Path = typer.Option(Path("web/data.json"), "--out", help="output data.json path"),
+    topics: Path = typer.Option(Path("web/topics.toml"), "--topics", help="topic table path"),
+    scope: str = typer.Option("mathlib", "--scope", help="P0 supports mathlib only"),
 ) -> None:
-    """计算模块级布局并导出 data.json（可视化层 P0）。"""
+    """Compute the module-level layout and export data.json (visualization layer P0)."""
     if scope != "mathlib":
-        typer.echo(f"error: --scope {scope} 未实现（P0 仅 mathlib）", err=True)
+        typer.echo(f"error: --scope {scope} not implemented (P0 supports mathlib only)", err=True)
         raise typer.Exit(code=2)
     records, bad = layout_mod.read_structure(structure)
     topic_list = layout_mod.load_topics(topics)
