@@ -1,4 +1,5 @@
-"""layout 单元测试：纯函数核心 + read_structure/CLI 的 tmp-path IO 测试（无 Neo4j/Lean）。"""
+"""Layout unit tests: pure-function core + tmp-path IO tests for read_structure/CLI
+(no Neo4j/Lean)."""
 import json as _json
 
 import pytest
@@ -32,14 +33,15 @@ class TestBands:
 
     def test_prefix_match_with_trailing_dot(self):
         topics = list(DEFAULT_TOPICS)
-        # Algebra 在表序上先于 AlgebraicGeometry：尾点防止 Algebra 吞掉 AlgebraicGeometry
+        # Algebra precedes AlgebraicGeometry in table order: the trailing dot
+        # stops Algebra from swallowing AlgebraicGeometry
         got = assign_topic("Mathlib.AlgebraicGeometry.Scheme", topics)
         assert got.id == "AlgebraicGeometry"
         got2 = assign_topic("Mathlib.Algebra.Group.Defs", topics)
         assert got2.id == "Algebra"
 
     def test_table_order_priority(self):
-        # 表序优先：手工构造两条都匹配的表，第一条胜出
+        # Table order wins: hand-built table where both entries match; the first wins
         custom = [
             Topic(id="Alpha", label="Alpha", y=10.0, color="#111111"),
             Topic(id="Alpha.Sub", label="AlphaSub", y=11.0, color="#222222"),
@@ -97,17 +99,17 @@ def rec(name: str, imports: tuple[str, ...] = (), decl_count: int = 0,
 class TestFilterAndBuild:
     def test_drops_umbrella_and_non_mathlib(self):
         mods = filter_and_build([
-            rec("Mathlib"),                      # 根伞
-            rec("Archive"),                      # Archive 根伞
+            rec("Mathlib"),                      # umbrella root
+            rec("Archive"),                      # Archive umbrella root
             rec("Archive.Examples.Foo", ("Mathlib.Order.Basic",)),
             rec("Counterexamples.X", ("Mathlib.Data.Nat.Basic",)),
             rec("Mathlib.Order.Basic"),
             rec("Mathlib.Algebra.Group.Defs",
                 ("Mathlib.Order.Basic", "Lean.Core", "Mathlib.Order.Basic")),
         ])
-        assert mods.names == ["Mathlib.Algebra.Group.Defs", "Mathlib.Order.Basic"]  # 名字序
+        assert mods.names == ["Mathlib.Algebra.Group.Defs", "Mathlib.Order.Basic"]  # name order
         assert mods.index["Mathlib.Order.Basic"] == 1
-        assert mods.deps[0] == [1]               # 外部 Lean.Core 跳过、重复 import 去重
+        assert mods.deps[0] == [1]               # external Lean.Core skipped, duplicate deduped
         assert mods.importers[1] == [0]
         assert mods.skipped_external == 1
 
@@ -151,13 +153,13 @@ class TestClosures:
         ])
         i = mods.index
         closures = compute_closures(mods, topological_order(mods))
-        # 手算：cl(A)=∅ cl(B)={A} cl(C)={A,B} cl(D)={A,B,C}
+        # by hand: cl(A)=∅ cl(B)={A} cl(C)={A,B} cl(D)={A,B,C}
         assert closures[i["Mathlib.A"]] == 0
         assert closures[i["Mathlib.B"]].bit_count() == 1
         assert (closures[i["Mathlib.C"]] >> i["Mathlib.A"]) & 1 == 1
         assert (closures[i["Mathlib.C"]] >> i["Mathlib.B"]) & 1 == 1
         assert closures[i["Mathlib.D"]].bit_count() == 3
-        # 不含自身
+        # excludes itself
         assert (closures[i["Mathlib.D"]] >> i["Mathlib.D"]) & 1 == 0
 
 
@@ -185,7 +187,7 @@ class TestReduction:
         ])
         closures = compute_closures(mods, topological_order(mods))
         reduced = transitively_reduce(mods, closures)
-        # 从 reduced 邻接重建闭包（DFS），断言与原闭包一致
+        # rebuild closures from the reduced adjacency (DFS), assert equal to the original
         seen_closures = []
         for start in range(len(mods.names)):
             stack, seen = list(reduced[start]), set()
@@ -204,7 +206,7 @@ class TestReduction:
 
 class TestPageRank:
     def test_hub_ranks_above_leaves(self):
-        # A 被 B 依赖，B 被 C 依赖：A > B > C（排序性质，不断言精确值）
+        # B depends on A, C depends on B: A > B > C (ordering property, no exact values)
         mods = filter_and_build([
             rec("Mathlib.C", ("Mathlib.B",)),
             rec("Mathlib.B", ("Mathlib.A",)),
@@ -221,7 +223,7 @@ class TestPageRank:
         assert rs[2] == pytest.approx(3.2)
 
     def test_radii_single_node(self):
-        # min==max 时归一化分母回退为 1.0，半径 = 0.2
+        # when min==max the normalization denominator falls back to 1.0, radius = 0.2
         assert radii([0.5]) == [pytest.approx(0.2)]
 
 
@@ -254,9 +256,11 @@ class TestPositions:
         assert zeros == [0.0, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, 0.0, -1.0]
 
     def test_same_column_nodes_get_distinct_slots(self):
-        # 同列同 topic 的多个节点：锯齿槽位保证整数槽互不重叠。
-        # 注：零闭包节点被散布到不同 x 列，故须用等大闭包（B/C/D 闭包=1，
-        # D 闭包=2→int(2^0.72)=1）构造真正的同列；A 独占 col 0 作对照。
+        # Multiple nodes in the same column and topic: zigzag slots keep the
+        # integer slots disjoint. Note: zero-closure nodes are spread across
+        # different x columns, so equal-size closures are needed (B/C closures=1,
+        # D closure=2→int(2^0.72)=1) to build a true same-column case; A sits
+        # alone in col 0 as the control.
         specs = {
             "Mathlib.Data.A": (),
             "Mathlib.Order.B": ("Mathlib.Data.A",),
@@ -307,13 +311,13 @@ class TestDocument:
         for key in ("modules", "edgesDirect", "edgesReduced", "skippedExternalImports",
                     "skippedBadLines", "unmatchedTopicModules"):
             assert key in doc["meta"]["stats"]
-        # 节点 = 拓扑序；A（无依赖）必须在首位
+        # nodes are in topo order; A (no deps) must come first
         assert doc["nodes"][0]["name"] == "Mathlib.A"
         node0 = doc["nodes"][0]
         for key in ("name", "topic", "x", "y", "r", "color", "declCount",
                     "closureSize", "isDeprecated", "title", "docstring"):
             assert key in node0
-        # 边下标合法且方向 = [dep, importer]
+        # edge indices valid, direction = [dep, importer]
         for a, b in doc["edges"]:
             assert 0 <= a < len(doc["nodes"]) and 0 <= b < len(doc["nodes"])
         assert doc["meta"]["stats"]["edgesReduced"] == len(doc["edges"])
@@ -339,7 +343,7 @@ class TestDocument:
         write_document(doc, out, now="2000-01-01T00:00:00")
         on_disk = _json.loads(out.read_text(encoding="utf-8"))
         assert on_disk["meta"]["generatedAt"] == "2000-01-01T00:00:00"
-        assert not list(tmp_path.glob("*.tmp"))          # 无残留临时文件
+        assert not list(tmp_path.glob("*.tmp"))          # no leftover temp file
 
     def test_same_input_byte_identical(self, tmp_path):
         import msgspec as _msgspec
@@ -378,10 +382,11 @@ class TestRunAndRead:
         d1 = run_layout(records, list(DEFAULT_TOPICS), version="v1", now="2026-01-01T00:00:00")
         d2 = run_layout(records, list(DEFAULT_TOPICS), version="v1", now="2026-01-01T00:00:00")
         assert __import__("msgspec").json.encode(d1) == __import__("msgspec").json.encode(d2)
-        assert d1["meta"]["stats"]["modules"] == 2          # Archive 被滤掉
+        assert d1["meta"]["stats"]["modules"] == 2          # Archive filtered out
         names = [nd["name"] for nd in d1["nodes"]]
-        assert names[0] == "Mathlib.Order.Basic"            # 拓扑序首位
-        # 未匹配 topic 报告出现在 stderr（Order/Algebra 均在表内 → 构造一个落灰带的）
+        assert names[0] == "Mathlib.Order.Basic"            # first in topo order
+        # unmatched-topic report goes to stderr (Order/Algebra are in the table,
+        # so build one that lands in the gray band)
         recs2 = [rec("Mathlib.Experiment.Foo", ("Mathlib.Order.Basic",))]
         run_layout(recs2, list(DEFAULT_TOPICS), version="v1", now="t")
         err = capsys.readouterr().err
@@ -394,7 +399,7 @@ class TestRunAndRead:
         from mathlib_kg.cli import app
 
         p = tmp_path / "s.jsonl"
-        p.write_bytes(_m.json.encode(rec("Mathlib.A")) + b"\n{broken\n")  # 1 好 + 1 坏
+        p.write_bytes(_m.json.encode(rec("Mathlib.A")) + b"\n{broken\n")  # 1 good + 1 bad
         out = tmp_path / "data.json"
         topics_f = tmp_path / "t.toml"
         topics_f.write_text(

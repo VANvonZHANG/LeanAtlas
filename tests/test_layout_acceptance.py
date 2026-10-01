@@ -1,4 +1,5 @@
-"""全量 acceptance：真实 structure.jsonl 跑通布局管线（MATHLIB_KG_RUN_ACCEPTANCE=1 门控）。"""
+"""Full-dataset acceptance: run the layout pipeline on the real structure.jsonl
+(gated by MATHLIB_KG_RUN_ACCEPTANCE=1)."""
 import os
 import random
 from pathlib import Path
@@ -29,7 +30,8 @@ def test_full_layout_on_real_structure():
     assert stats["modules"] > 8000
     assert 0 < stats["edgesReduced"] < stats["edgesDirect"]
 
-    # x 单调性：随机抽 100 对（B 传递依赖 A ⇒ x_B > x_A），下标空间 = 拓扑序
+    # x monotonicity: sample 100 random pairs (B transitively depends on A ⇒ x_B > x_A);
+    # index space = topo order
     mod = filter_and_build(records)
     topo = topological_order(mod)
     closures = compute_closures(mod, topo)
@@ -46,9 +48,10 @@ def test_full_layout_on_real_structure():
         assert xs[pos_of[b]] > xs[pos_of[a]], f"{mod.names[b]} depends on {mod.names[a]}"
         checked += 1
 
-    # PageRank 枢纽：r 最高的 5 个节点里含 Mathlib.Init
-    # （计划断言 Mathlib.Tactic；实测快照中它 0 直接 importers、rank 7965/8094——现代 mathlib
-    #  已不 import 该伞模块；最大地基枢纽 = Mathlib.Init，已经 networkx 3.5 交叉验证，
-    #  见 .superpowers/sdd/task-10-report.md 偏差记录。）
+    # PageRank hubs: the top-5 nodes by r must include Mathlib.Init.
+    # (The plan asserted Mathlib.Tactic; in the measured snapshot it has 0 direct
+    #  importers and rank 7965/8094 — modern mathlib no longer imports that
+    #  umbrella module. The largest foundational hub is Mathlib.Init, cross-checked
+    #  against networkx 3.5; see the deviation log in .superpowers/sdd/task-10-report.md.)
     top5 = sorted(doc["nodes"], key=lambda nd: -nd["r"])[:5]
     assert any(nd["name"] == "Mathlib.Init" for nd in top5)
