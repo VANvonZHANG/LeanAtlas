@@ -166,3 +166,16 @@ def topological_order(mod: Modules) -> list[int]:
         sample = sorted(mod.names[i] for i in range(n) if i not in placed)[:10]
         raise LayoutCycleError(sample)
     return order
+
+
+def compute_closures(mod: Modules, topo: list[int]) -> list[int]:
+    """传递闭包位图（Python 大整数即位集；与 Lean Shake 的 Bitset 同构）。
+
+    closure[i] 第 j 位=1 ⟺ i 传递依赖 j（不含 i 自身）。~8.8k 位 × 8.8k 节点 ≈ 10MB。
+    """
+    closures = [0] * len(mod.names)
+    for v in topo:                      # v（依赖）先于所有 importers 处理
+        cv = closures[v] | (1 << v)
+        for u in mod.importers[v]:
+            closures[u] |= cv
+    return closures

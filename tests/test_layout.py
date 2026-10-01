@@ -9,6 +9,7 @@ from mathlib_kg.layout import (
     LayoutError,
     Topic,
     assign_topic,
+    compute_closures,
     filter_and_build,
     load_topics,
     topological_order,
@@ -128,3 +129,23 @@ class TestTopo:
         with pytest.raises(LayoutCycleError) as ei:
             topological_order(mods)
         assert "Mathlib.X" in str(ei.value) and "Mathlib.Y" in str(ei.value)
+
+
+class TestClosures:
+    def test_closure_golden(self):
+        mods = filter_and_build([
+            rec("Mathlib.D", ("Mathlib.A", "Mathlib.B", "Mathlib.C")),
+            rec("Mathlib.C", ("Mathlib.B",)),
+            rec("Mathlib.B", ("Mathlib.A",)),
+            rec("Mathlib.A"),
+        ])
+        i = mods.index
+        closures = compute_closures(mods, topological_order(mods))
+        # 手算：cl(A)=∅ cl(B)={A} cl(C)={A,B} cl(D)={A,B,C}
+        assert closures[i["Mathlib.A"]] == 0
+        assert closures[i["Mathlib.B"]].bit_count() == 1
+        assert (closures[i["Mathlib.C"]] >> i["Mathlib.A"]) & 1 == 1
+        assert (closures[i["Mathlib.C"]] >> i["Mathlib.B"]) & 1 == 1
+        assert closures[i["Mathlib.D"]].bit_count() == 3
+        # 不含自身
+        assert (closures[i["Mathlib.D"]] >> i["Mathlib.D"]) & 1 == 0
