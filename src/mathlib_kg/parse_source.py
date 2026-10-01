@@ -10,8 +10,20 @@ from .models import Declaration, Import, ModuleRecord, module_to_json
 # ---- Module-level regexes ----
 AUTHORS_RE = re.compile(r"Authors:\s*(.+)")
 MODULE_DOC_RE = re.compile(r"/-!(.*?)-/", re.DOTALL)
-IMPORT_RE = re.compile(r"^\s*(public\s+)?import\s+([A-Za-z_][\w.]*)", re.MULTILINE)
+# One import line from the file header. Accepts the modern module-system
+# grammar: `public`/`meta`/`all` modifiers before `import` (e.g.
+# `public meta import X`), the postfix `import all X` form, an optional inline
+# block comment between `import` and the module name, and a trailing
+# `-- comment` after the name (the name group stops at whitespace).
+IMPORT_LINE_RE = re.compile(
+    r"^(?P<mods>(?:(?:public|meta|all)\s+)*)import(?:\s+all)?\s+"
+    r"(?:/-.*?-/\s*)?(?P<name>[A-Za-z_][\w.]*)"
+)
 DEPRECATED_MODULE_RE = re.compile(r"^\s*deprecated_module\b", re.MULTILINE)
+# Module-system keyword lines allowed in the header: `module` / `prelude`,
+# optionally followed by a `--` comment (e.g. `module  -- shake: keep-all`;
+# umbrella files use variable whitespace before the comment).
+HEADER_KW_RE = re.compile(r"^(?:module|prelude)(?:\s+--.*)?$")
 
 # ---- Declaration-level regexes ----
 DECL_RE = re.compile(
@@ -55,6 +67,48 @@ def _parse_title(doc: str) -> Optional[str]:
     return None
 
 
+def parse_header_imports(text: str) -> list[tuple[str, bool]]:
+    """Collect `(name, isPublic)` import pairs from the file header only.
+
+    The header is the top-of-file region made of blank lines, `--` line
+    comments, block comments `/- ... -/` (one-line or multi-line, including
+    `/-!` module docstrings and copyright headers), the `prelude` /
+    `module` module-system keywords, and consecutive import lines. Scanning
+    stops at the first real content line, so example import lines inside
+    docstrings or comments later in the file are never captured.
+
+    Known limitation: nested block comments (`/- /- -/ -/`) are not tracked;
+    mathlib headers do not use them.
+    """
+    imports: list[tuple[str, bool]] = []
+    in_block = False
+    for raw in text.split("\n"):
+        line = raw.strip()
+        if in_block:
+            if "-/" in line:
+                in_block = False
+            continue
+        if not line or line.startswith("--"):
+            continue
+        if line.startswith("/-"):
+            # One-line block comments (incl. `/-!` module docstrings) end on
+            # the same line; otherwise we are inside a multi-line block.
+            if "-/" not in line[2:]:
+                in_block = True
+            continue
+        # Module-system keywords: mathlib files carry a `module` (sometimes
+        # `module  -- shake: keep-all`, with variable whitespace) or `prelude`
+        # line before the imports.
+        if HEADER_KW_RE.match(line):
+            continue
+        if m := IMPORT_LINE_RE.match(line):
+            mods = m.group("mods") or ""
+            imports.append((m.group("name"), "public" in mods.split()))
+            continue
+        break  # first real content line: the header is over
+    return imports
+
+
 def parse_module_meta(text: str, path: str) -> ModuleMeta:
     am = AUTHORS_RE.search(text)
     authors = [a.strip() for a in am.group(1).split(",") if a.strip()] if am else []
@@ -65,8 +119,8 @@ def parse_module_meta(text: str, path: str) -> ModuleMeta:
         title = _parse_title(docstring)
         tags = _parse_tags(docstring)
     imports = [
-        Import(name=m.group(2), isPublic=bool(m.group(1)))
-        for m in IMPORT_RE.finditer(text)
+        Import(name=name, isPublic=is_public)
+        for name, is_public in parse_header_imports(text)
     ]
     return ModuleMeta(
         module=Path(path).stem,
