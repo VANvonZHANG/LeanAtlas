@@ -179,3 +179,23 @@ def compute_closures(mod: Modules, topo: list[int]) -> list[int]:
         for u in mod.importers[v]:
             closures[u] |= cv
     return closures
+
+
+def transitively_reduce(mod: Modules, closures: list[int]) -> list[list[int]]:
+    """传递约简：删除可经其他直接依赖推导的边；可达性严格不变。"""
+    reduced: list[list[int]] = []
+    for b in range(len(mod.names)):
+        deps_b = mod.deps[b]
+        keep: list[int] = []
+        for a in deps_b:
+            redundant = False
+            for d in deps_b:
+                if d == a:
+                    continue
+                if (closures[d] >> a) & 1:   # d 传递依赖 a ⟹ b 经 d 可达 a
+                    redundant = True
+                    break
+            if not redundant:
+                keep.append(a)
+        reduced.append(sorted(keep))
+    return reduced

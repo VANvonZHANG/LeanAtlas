@@ -13,6 +13,7 @@ from mathlib_kg.layout import (
     filter_and_build,
     load_topics,
     topological_order,
+    transitively_reduce,
 )
 from mathlib_kg.models import Import
 
@@ -149,3 +150,44 @@ class TestClosures:
         assert closures[i["Mathlib.D"]].bit_count() == 3
         # 不含自身
         assert (closures[i["Mathlib.D"]] >> i["Mathlib.D"]) & 1 == 0
+
+
+class TestReduction:
+    def test_diamond_redundant_edge_removed(self):
+        mods = filter_and_build([
+            rec("Mathlib.D", ("Mathlib.A", "Mathlib.B", "Mathlib.C")),
+            rec("Mathlib.C", ("Mathlib.A",)),
+            rec("Mathlib.B", ("Mathlib.A",)),
+            rec("Mathlib.A"),
+        ])
+        i = mods.index
+        reduced = transitively_reduce(mods, compute_closures(mods, topological_order(mods)))
+        assert sorted(reduced[i["Mathlib.D"]]) == sorted([i["Mathlib.B"], i["Mathlib.C"]])
+        assert reduced[i["Mathlib.C"]] == [i["Mathlib.A"]]
+        assert reduced[i["Mathlib.A"]] == []
+
+    def test_reachability_preserved(self):
+        mods = filter_and_build([
+            rec("Mathlib.D", ("Mathlib.A", "Mathlib.B", "Mathlib.C")),
+            rec("Mathlib.C", ("Mathlib.B", "Mathlib.A")),
+            rec("Mathlib.B", ("Mathlib.A",)),
+            rec("Mathlib.E", ("Mathlib.D",)),
+            rec("Mathlib.A"),
+        ])
+        closures = compute_closures(mods, topological_order(mods))
+        reduced = transitively_reduce(mods, closures)
+        # 从 reduced 邻接重建闭包（DFS），断言与原闭包一致
+        seen_closures = []
+        for start in range(len(mods.names)):
+            stack, seen = list(reduced[start]), set()
+            while stack:
+                v = stack.pop()
+                if v in seen:
+                    continue
+                seen.add(v)
+                stack.extend(reduced[v])
+            seen_closures.append(seen)
+        for v in range(len(mods.names)):
+            assert seen_closures[v] == {
+                u for u in range(len(mods.names)) if (closures[v] >> u) & 1
+            }
