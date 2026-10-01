@@ -1,11 +1,12 @@
 """Neo4j schema DDL for v1 (constraints, indexes, fulltext).
 
-注意：运行中的 Neo4j 为社区版，不支持多数据库，因此 KG 数据装入默认 `neo4j`
-库，靠 KG 专有标签（Declaration/Module/Namespace）与既有数据隔离。drop_kg 只
-删除这些标签的节点，不影响库内其它数据。
+Note: the running Neo4j is Community Edition, which has no multi-database
+support, so KG data goes into the default `neo4j` database and is isolated from
+existing data by KG-specific labels (Declaration/Module/Namespace). drop_kg
+deletes only nodes carrying these labels and leaves other data untouched.
 """
 
-# 显式命名，便于 SHOW CONSTRAINTS/INDEXES 断言与幂等重建
+# Named explicitly for SHOW CONSTRAINTS/INDEXES assertions and idempotent rebuilds
 SCHEMA_STATEMENTS = [
     "CREATE CONSTRAINT decl_name_unique IF NOT EXISTS "
     "FOR (n:Declaration) REQUIRE n.name IS UNIQUE",
@@ -24,27 +25,29 @@ SCHEMA_STATEMENTS = [
 
 
 def apply_schema(tx) -> None:
-    """在事务中执行全部 DDL（供 session.execute_write 使用）。"""
+    """Run all DDL inside a transaction (for use with session.execute_write)."""
     for stmt in SCHEMA_STATEMENTS:
         tx.run(stmt)
 
 
 def drop_kg(tx) -> None:
-    """删除全部 KG 节点（Declaration/Module/Namespace）及其关系，保留库内其它数据。"""
+    """Delete all KG nodes (Declaration/Module/Namespace) and relationships, keep other data."""
     tx.run("MATCH (n:Declaration) DETACH DELETE n")
     tx.run("MATCH (n:Module) DETACH DELETE n")
     tx.run("MATCH (n:Namespace) DETACH DELETE n")
 
 
 def drop_kg_batched(session) -> None:
-    """批量清空 KG（先删边、再删节点），适合大图。
+    """Batched KG wipe (delete edges first, then nodes), suited to large graphs.
 
-    直接 DETACH DELETE 高度数枢纽节点（如 `id`/`Nat`）会令单事务触及百万边而 OOM；
-    故先分批删 DEPENDS_ON 等边，节点变孤立后再批量删。
+    A direct DETACH DELETE of high-degree hub nodes (e.g. `id`/`Nat`) makes a
+    single transaction touch millions of edges and OOM; so DEPENDS_ON and other
+    edges are deleted in batches first, then the isolated nodes are batch-deleted.
     """
-    # 所有边类型统一分块删除（M1 加固：HAS_FIELD 在生产量级 ~150k 边，
-    # 与 v2 验证过的 DEPENDS_ON 单事务上限 ~20k 相比高 8 倍，单事务 DELETE 有 OOM 风险；
-    # 故对每种边类型都镜像 DEPENDS_ON 的 while...LIMIT...DELETE 模式）
+    # All edge types are deleted in batches uniformly (M1 hardening: HAS_FIELD
+    # reaches ~150k edges in production, 8x the ~20k per-transaction DEPENDS_ON
+    # ceiling validated in v2, so a single-transaction DELETE risks OOM; hence
+    # every edge type mirrors DEPENDS_ON's while...LIMIT...DELETE pattern)
     for t in ("DEPENDS_ON", "IMPORTS", "IN_NAMESPACE", "SUBNAMESPACE_OF", "DEFINED_IN",
               "EXTENDS", "INSTANTIATES", "DEPRECATED_BY", "HAS_ADDITIVE_VERSION",
               "HAS_FIELD", "HAS_CONSTRUCTOR"):

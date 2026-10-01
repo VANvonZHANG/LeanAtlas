@@ -7,13 +7,13 @@ import msgspec
 
 from .models import Declaration, Import, ModuleRecord, module_to_json
 
-# ---- 模块级正则 ----
+# ---- Module-level regexes ----
 AUTHORS_RE = re.compile(r"Authors:\s*(.+)")
 MODULE_DOC_RE = re.compile(r"/-!(.*?)-/", re.DOTALL)
 IMPORT_RE = re.compile(r"^\s*(public\s+)?import\s+([A-Za-z_][\w.]*)", re.MULTILINE)
 DEPRECATED_MODULE_RE = re.compile(r"^\s*deprecated_module\b", re.MULTILINE)
 
-# ---- 声明级正则 ----
+# ---- Declaration-level regexes ----
 DECL_RE = re.compile(
     r"^(?P<attrs>(?:@\[[^\]]*\]\s*)*)"
     r"(?P<mods>(?:(?:protected|private|noncomputable|partial)\s+)*)"
@@ -91,7 +91,7 @@ def parse_declarations(
     text: str, source_file: str, warnings: list[str]
 ) -> list[Declaration]:
     lines = text.splitlines()
-    # 顶层声明头（行首无缩进）
+    # Top-level declaration headers (no indentation at line start)
     decl_starts: list[tuple[int, re.Match]] = []
     for i, ln in enumerate(lines):
         if ln[:1].isspace():
@@ -111,7 +111,7 @@ def parse_declarations(
     for i, ln in enumerate(lines):
         stripped = ln.strip()
         if collecting_doc:
-            # 多行 docstring：持续收集直到含 `-/` 的行
+            # Multi-line docstring: keep collecting until a line containing `-/`
             if "-/" in stripped:
                 doc_buf.append(stripped.split("-/", 1)[0])
                 pending_doc = "\n".join(p for p in doc_buf if p).strip()
@@ -154,12 +154,13 @@ def parse_declarations(
             end_idx = decl_starts[di][0] if di < len(decl_starts) else len(lines)
             src = "\n".join(lines[start_idx:end_idx])
             if not name_raw and kind != "instance":
-                warnings.append(f"{source_file}:{start_idx + 1}: 无法解析 {kind} 名称")
+                warnings.append(f"{source_file}:{start_idx + 1}: cannot parse {kind} name")
                 pending_doc = None
                 pending_attrs = []
                 continue
             mods = m.group("mods") or ""
-            # 完整限定名 = 命名空间 + 短名（与 Lean 常量名一致，便于与 extract 对齐）
+            # Fully qualified name = namespace + short name (matches Lean constant
+            # names, so it aligns with extract)
             qualified = (ns + "." + name_raw) if (ns and name_raw) else name_raw
             results.append(
                 Declaration(

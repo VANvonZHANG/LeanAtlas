@@ -22,7 +22,8 @@ BATCH = 1000
 
 def connect() -> Driver:
     cfg = get_config()
-    # 大批量装载下连接可能因 Neo4j GC 暂停而暂时无响应；放宽超时与重试上限
+    # Under bulk loads the connection may stall during Neo4j GC pauses; relax
+    # timeouts and retry limits
     return GraphDatabase.driver(
         cfg.neo4j_uri,
         auth=(cfg.neo4j_user, cfg.neo4j_password),
@@ -119,7 +120,7 @@ def load_declarations(tx, records: list[ModuleRecord]) -> None:
             "UNWIND $batch AS d MERGE (n:Declaration {name: d.name}) SET n += d",
             batch=decl_rows[i : i + BATCH],
         )
-    # 种类标签（label 来自固定映射，可安全字符串拼接）
+    # Kind labels (the label comes from a fixed mapping, so %-interpolation is safe)
     for kind, label in KIND_TO_LABEL.items():
         tx.run("MATCH (n:Declaration {kind:$k}) SET n:%s" % label, k=kind)
     for i in range(0, len(ns_rel), BATCH):
@@ -165,7 +166,8 @@ def _context(in_type: bool, in_value: bool) -> str:
 
 
 def load_dependencies(tx, records: list) -> None:
-    # 收集所有被引用的依赖名，为不存在的建外部占位节点（ON CREATE 只标记新建的）
+    # Collect all referenced dependency names and create external placeholder
+    # nodes for missing ones (ON CREATE only marks newly created ones)
     dep_names: list[str] = []
     seen_names: set[str] = set()
     for er in records:
@@ -179,7 +181,7 @@ def load_dependencies(tx, records: list) -> None:
             "ON CREATE SET n.isExternal = true",
             batch=dep_names[i : i + BATCH],
         )
-    # typeSignature 写入声明
+    # Write typeSignature onto declarations
     sig_rows = [{"name": er.name, "typeSignature": er.typeSignature} for er in records]
     for i in range(0, len(sig_rows), BATCH):
         tx.run(
@@ -187,7 +189,7 @@ def load_dependencies(tx, records: list) -> None:
             "SET d.typeSignature=r.typeSignature",
             batch=sig_rows[i : i + BATCH],
         )
-    # DEPENDS_ON 边
+    # DEPENDS_ON edges
     edge_rows: list[dict] = []
     for er in records:
         for d in er.deps:
@@ -208,28 +210,34 @@ def load_dependencies(tx, records: list) -> None:
 
 
 def load_dependencies_chunked(session, records: list, chunk: int = 2000) -> None:
-    """按记录分块、每块独立事务提交——避免把数百万依赖边塞进单个巨型事务。
+    """Commit in record chunks, one committed transaction per chunk — avoids
+    pushing millions of dependency edges into a single giant transaction.
 
-    `load_dependencies` 本身把占位/typeSig/边都在 *一个* 事务里做（适合小数据）；
-    全量装载时必须切成多个已提交事务，否则 Neo4j 事务状态会撑爆内存/超时。
+    `load_dependencies` itself does placeholders/typeSig/edges in *one*
+    transaction (fine for small data); full loads must split into multiple
+    committed transactions or Neo4j transaction state exhausts memory / times out.
     """
     for i in range(0, len(records), chunk):
         session.execute_write(load_dependencies, records[i : i + chunk])
 
 
 def load_relationships_chunked(session, records: list, chunk: int = 2000) -> None:
-    """v2 关系边分块提交，镜像 load_dependencies_chunked：避免单巨型事务。
+    """Chunked commits of v2 relationship edges, mirroring
+    load_dependencies_chunked: avoid a single giant transaction.
 
-    spec §11：关系边 ~4 万量级，分块 2000/事务。
-    `load_relationships` 已按 list 取 records 且逐 record 正确；这里只是把记录
-    切到多个独立已提交事务里。占位端点用 MERGE，跨块安全（幂等）。
+    spec §11: relationship edges number ~40k; chunk at 2000/transaction.
+    `load_relationships` already takes a records list and handles each record
+    correctly; here we merely split the records across multiple independent
+    committed transactions. Placeholder endpoints use MERGE, safe across chunks
+    (idempotent).
     """
     for i in range(0, len(records), chunk):
         session.execute_write(load_relationships, records[i : i + chunk])
 
 
 def _rel_targets(er) -> list[str]:
-    """收集一条 extract 记录里所有关系端点的目标名（供外部占位）。"""
+    """Collect the target names of all relationship endpoints in one extract
+    record (for external placeholders)."""
     out: list[str] = []
     for it in er.extends:
         out.append(it.parent)
@@ -243,12 +251,15 @@ def _rel_targets(er) -> list[str]:
 
 
 def load_relationships(tx, records: list) -> None:
-    """v2：从 extract 记录的四类关系字段造 EXTENDS/INSTANTIATES/DEPRECATED_BY/HAS_ADDITIVE_VERSION 边。
+    """v2: build EXTENDS/INSTANTIATES/DEPRECATED_BY/HAS_ADDITIVE_VERSION edges
+    from the four relationship fields of extract records.
 
-    全量重建路径下图已 drop，故用 CREATE（空图无重边风险）。外部端点（不在声明集中的类型类/替换名）
-    用 ON CREATE SET isExternal=true 建占位，保证边挂得上。
+    On the full-rebuild path the graph has been dropped, so use CREATE (an empty
+    graph carries no duplicate-edge risk). External endpoints (typeclass /
+    replacement names not in the declaration set) get placeholders via
+    ON CREATE SET isExternal=true so the edges can attach.
     """
-    # ① 为所有目标端建占位（已存在的真实声明不受影响）
+    # ① Create placeholders for all target endpoints (existing real declarations are unaffected)
     target_names: list[str] = []
     seen: set[str] = set()
     for er in records:
@@ -263,7 +274,7 @@ def load_relationships(tx, records: list) -> None:
             batch=target_names[i : i + BATCH],
         )
 
-    # ② EXTENDS（含 position）
+    # ② EXTENDS (with position)
     ext_rows = [
         {"src": er.name, "dst": it.parent, "position": it.position}
         for er in records
@@ -277,7 +288,7 @@ def load_relationships(tx, records: list) -> None:
             batch=ext_rows[i : i + BATCH],
         )
 
-    # ③ INSTANTIATES（含 priority）
+    # ③ INSTANTIATES (with priority)
     inst_rows = [
         {"src": er.name, "dst": er.instantiates, "priority": er.instancePriority}
         for er in records
@@ -291,7 +302,7 @@ def load_relationships(tx, records: list) -> None:
             batch=inst_rows[i : i + BATCH],
         )
 
-    # ④ DEPRECATED_BY（含 message, since）
+    # ④ DEPRECATED_BY (with message, since)
     dep_rows = [
         {
             "src": er.name,
@@ -327,22 +338,30 @@ def load_relationships(tx, records: list) -> None:
 
 def load_fields_constructors(tx, records: list, type_names: set[str],
                              sig_by_name: dict[str, str] | None = None) -> None:
-    """v2.5：把 mathlib 类型（er.name ∈ type_names）的字段/构造子扶正为 :Field/:Constructor
-    节点并挂 HAS_FIELD/HAS_CONSTRUCTOR 边。
+    """v2.5: promote the fields/constructors of mathlib types (er.name ∈
+    type_names) to :Field/:Constructor nodes and attach HAS_FIELD/HAS_CONSTRUCTOR
+    edges.
 
-    全量重建路径下图已 drop，故边用 CREATE（空图无重边风险）。范围判据在 Python 侧
-    （type_names 来自 structure.jsonl 的 mathlib 类型声明集），外部类型不展开。
-    字段/构造子若第 5 步未被任何声明依赖（未建点），此处首次建点并补 typeSignature。
+    On the full-rebuild path the graph has been dropped, so edges use CREATE
+    (an empty graph carries no duplicate-edge risk). The scope predicate lives
+    on the Python side (type_names comes from the mathlib type declaration set
+    in structure.jsonl); external types are not expanded. Fields/constructors
+    not depended on by any declaration in step 5 (no node created) get their
+    node created here for the first time, with a typeSignature backfill.
 
-    sig_by_name：可选的 name → typeSignature 全量索引；若 None（默认，单事务/单元测试路径）
-    则就地从 records 构建。分块路径需在分块前全量构建并传入，否则字段常量自身的记录
-    （带 typeSig）与其父类型记录（带 fields）落入不同 chunk 时无法补写。
+    sig_by_name: optional full name → typeSignature index; if None (default,
+    single-transaction / unit-test path) it is built in place from records.
+    The chunked path must build it fully before chunking and pass it in,
+    otherwise the field constants' own records (carrying typeSig) and their
+    parent type records (carrying fields) landing in different chunks cannot
+    be backfilled.
     """
-    # name → typeSignature 索引（字段/构造子常量自己的记录带 typeSig，复用补写）
+    # name → typeSignature index (the field/constructor constants' own records
+    # carry typeSig; reuse for backfill)
     if sig_by_name is None:
         sig_by_name = {er.name: er.typeSignature for er in records}
 
-    # 收集字段行（仅 er.name ∈ type_names 的类型）
+    # Collect field rows (only for types with er.name ∈ type_names)
     field_rows = [
         {"name": f.name, "type": er.name, "position": f.position,
          "sig": sig_by_name.get(f.name, "")}
@@ -356,7 +375,8 @@ def load_fields_constructors(tx, records: list, type_names: set[str],
         for c in er.constructors
     ]
 
-    # ① 扶正字段节点（MERGE 兜底建点保反向 DEPENDS_ON 边；SET 标签/kind/isExternal/typeSig）
+    # ① Promote field nodes (MERGE backstop creates the node to keep reverse
+    # DEPENDS_ON edges attachable; SET label/kind/isExternal/typeSig)
     for i in range(0, len(field_rows), BATCH):
         tx.run(
             "UNWIND $batch AS r MERGE (n:Declaration {name: r.name}) "
@@ -364,7 +384,7 @@ def load_fields_constructors(tx, records: list, type_names: set[str],
             "SET n:Field, n.kind = 'field', n.isExternal = false, n.typeSignature = r.sig",
             batch=field_rows[i : i + BATCH],
         )
-    # ② 扶正构造子节点
+    # ② Promote constructor nodes
     for i in range(0, len(ctor_rows), BATCH):
         tx.run(
             "UNWIND $batch AS r MERGE (n:Declaration {name: r.name}) "
@@ -372,7 +392,8 @@ def load_fields_constructors(tx, records: list, type_names: set[str],
             "SET n:Constructor, n.kind = 'constructor', n.isExternal = false, n.typeSignature = r.sig",
             batch=ctor_rows[i : i + BATCH],
         )
-    # ③ HAS_FIELD 边（类型节点已在 load_declarations 建好；字段节点刚扶正）
+    # ③ HAS_FIELD edges (type nodes were created by load_declarations; field
+    # nodes were just promoted)
     for i in range(0, len(field_rows), BATCH):
         tx.run(
             "UNWIND $batch AS r MATCH (t:Declaration {name:r.type}), "
@@ -380,7 +401,7 @@ def load_fields_constructors(tx, records: list, type_names: set[str],
             "CREATE (t)-[:HAS_FIELD {position:r.position}]->(f)",
             batch=field_rows[i : i + BATCH],
         )
-    # ④ HAS_CONSTRUCTOR 边
+    # ④ HAS_CONSTRUCTOR edges
     for i in range(0, len(ctor_rows), BATCH):
         tx.run(
             "UNWIND $batch AS r MATCH (t:Declaration {name:r.type}), "
@@ -392,11 +413,14 @@ def load_fields_constructors(tx, records: list, type_names: set[str],
 
 def load_fields_constructors_chunked(session, records: list, type_names: set[str],
                                      chunk: int = 2000) -> None:
-    """v2.5 字段/构造子边分块提交，镜像 load_relationships_chunked：避免单巨型事务。
-    全量装载 fields/constructors 量级 ~15 万，分块 2000/事务。
+    """v2.5 chunked commits of field/constructor edges, mirroring
+    load_relationships_chunked: avoid a single giant transaction.
+    Full loads carry ~150k fields/constructors; chunk at 2000/transaction.
 
-    sig_by_name 在分块前全量构建（跨 chunk 可见）——字段常量自身的 ExtractRecord
-    （带 typeSig）与其所属类型记录常落在不同 chunk，per-chunk 索引会丢失 typeSig。
+    sig_by_name is built fully before chunking (visible across chunks) — the
+    field constants' own ExtractRecord (carrying typeSig) and their parent
+    type's record often land in different chunks; a per-chunk index would lose
+    the typeSig.
     """
     sig_by_name = {er.name: er.typeSignature for er in records}
     for i in range(0, len(records), chunk):

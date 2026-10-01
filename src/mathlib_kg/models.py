@@ -12,7 +12,8 @@ class Import(msgspec.Struct):
 
 
 class Declaration(msgspec.Struct):
-    # 必填字段在前（msgspec.Struct 要求无默认值的字段不能排在有默认值的之后）
+    # Required fields first (msgspec.Struct forbids fields without defaults
+    # after fields with defaults)
     name: str
     shortName: str
     kind: str
@@ -21,7 +22,7 @@ class Declaration(msgspec.Struct):
     startLine: int
     endLine: int
     sourceText: str
-    # 可选/默认字段在后
+    # Optional/defaulted fields after
     docstring: Optional[str] = None
     attrs: list[str] = msgspec.field(default_factory=list)
     isProtected: bool = False
@@ -74,13 +75,14 @@ class ExtractRecord(msgspec.Struct):
     name: str
     typeSignature: str
     deps: list[Dep] = msgspec.field(default_factory=list)
-    # v2 结构关系边（缺省时为空/null，向后兼容旧 extract.jsonl）
+    # v2 structural relationship edges (empty/null by default, backward
+    # compatible with old extract.jsonl)
     extends: list[ExtendsItem] = msgspec.field(default_factory=list)
     instantiates: Optional[str] = None
     instancePriority: Optional[int] = None
     deprecatedBy: Optional[DeprecatedBy] = None
     additiveVersion: Optional[str] = None
-    # v2.5 字段/构造子（缺省时空列表，向后兼容）
+    # v2.5 fields/constructors (empty lists by default, backward compatible)
     fields: list[FieldItem] = msgspec.field(default_factory=list)
     constructors: list[CtorItem] = msgspec.field(default_factory=list)
 
