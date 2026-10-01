@@ -5,11 +5,13 @@ import pytest
 
 from mathlib_kg.layout import (
     DEFAULT_TOPICS,
+    LayoutCycleError,
     LayoutError,
     Topic,
     assign_topic,
     filter_and_build,
     load_topics,
+    topological_order,
 )
 from mathlib_kg.models import Import
 
@@ -105,3 +107,24 @@ class TestFilterAndBuild:
     def test_zero_alive_raises(self):
         with pytest.raises(LayoutError, match="no Mathlib"):
             filter_and_build([rec("Archive"), rec("Mathlib")])
+
+
+class TestTopo:
+    def test_topological_order(self):
+        mods = filter_and_build([
+            rec("Mathlib.C", ("Mathlib.B",)),
+            rec("Mathlib.B", ("Mathlib.A",)),
+            rec("Mathlib.A"),
+        ])
+        order = topological_order(mods)
+        assert order.index(mods.index["Mathlib.A"]) < order.index(mods.index["Mathlib.B"])
+        assert order.index(mods.index["Mathlib.B"]) < order.index(mods.index["Mathlib.C"])
+
+    def test_cycle_raises_with_names(self):
+        mods = filter_and_build([
+            rec("Mathlib.X", ("Mathlib.Y",)),
+            rec("Mathlib.Y", ("Mathlib.X",)),
+        ])
+        with pytest.raises(LayoutCycleError) as ei:
+            topological_order(mods)
+        assert "Mathlib.X" in str(ei.value) and "Mathlib.Y" in str(ei.value)

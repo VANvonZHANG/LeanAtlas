@@ -6,6 +6,7 @@
 """
 import sys
 import tomllib
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -145,3 +146,23 @@ def filter_and_build(records: list[ModuleRecord]) -> Modules:
         names=[r.module for r in kept], index=index, deps=deps, importers=importers,
         skipped_external=skipped_external, records=kept,
     )
+
+
+def topological_order(mod: Modules) -> list[int]:
+    """Kahn 拓扑排序（依赖在前）。确定性：初始队列与出边均按索引升序（=名字序）。"""
+    n = len(mod.names)
+    indeg = [len(mod.deps[i]) for i in range(n)]   # 图向 dep→importer：入度=依赖数
+    queue = deque(i for i in range(n) if indeg[i] == 0)
+    order: list[int] = []
+    while queue:
+        v = queue.popleft()
+        order.append(v)
+        for u in mod.importers[v]:                 # 构建时已按名字序追加，无需再排
+            indeg[u] -= 1
+            if indeg[u] == 0:
+                queue.append(u)
+    if len(order) != n:
+        placed = set(order)
+        sample = sorted(mod.names[i] for i in range(n) if i not in placed)[:10]
+        raise LayoutCycleError(sample)
+    return order
