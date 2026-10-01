@@ -1,8 +1,11 @@
-"""布局引擎纯函数核心：structure.jsonl 记录 → 前端可消费的布局数据。
+"""Pure-function core of the layout engine: structure.jsonl records → layout data
+consumable by the frontend.
 
-分层：load/filter → topo → 位图闭包 → PageRank → 泳道坐标 → 传递约简 → export。
-全部函数无文件 IO（read_structure/describe_mathlib/write_document 例外，见文末）；确定性总纲：
-顺序敏感路径禁用 set/dict 迭代，一切顺序 = 拓扑序或名字排序。
+Pipeline: load/filter → topo → bitmask closures → PageRank → swimlane coordinates →
+transitive reduction → export. All functions are free of file IO (except
+read_structure/describe_mathlib/write_document at the end). Determinism rule:
+never iterate sets/dicts on order-sensitive paths; every ordering is either
+topological order or name-sorted order.
 """
 import os
 import subprocess
@@ -27,11 +30,11 @@ __all__ = [
 
 
 class LayoutError(Exception):
-    """布局管线可预期的失败（过滤器全灭、损坏行超限等）。"""
+    """Expected layout-pipeline failure (empty filter result, bad-line overflow, etc.)."""
 
 
 class LayoutCycleError(LayoutError):
-    """检测到 import 环（Lean 理论无环，这是句法解析数据的质量哨兵）。"""
+    """Import cycle detected (Lean theories are acyclic; a data-quality sentinel for the parse)."""
 
     def __init__(self, sample: list[str]):
         super().__init__("import cycle detected: " + ", ".join(sample))
@@ -42,15 +45,15 @@ class LayoutCycleError(LayoutError):
 class Topic:
     id: str
     label: str
-    labelZh: str  # noqa: N815 — 字段名即 JSON 契约（与 data.json/topics.toml 同名）
+    labelZh: str  # noqa: N815 — field name is the JSON contract (same key in data.json/topics.toml)
     y: float
     color: str
 
 
 _FALLBACK_TOPIC = Topic(id="_default", label="Other", labelZh="其他", y=140.0, color="#202020")
 
-# 内建 fallback 表（初始 = web/topics.toml 同款，27+1 条；
-# y/color 改编自 MathlibExplorer gen_graph.py）
+# Built-in fallback table (initially identical to web/topics.toml, 27+1 entries;
+# y/color adapted from MathlibExplorer gen_graph.py)
 DEFAULT_TOPICS: tuple[Topic, ...] = (
     Topic("Tactic", "Tactic", "战术", 40.0, "#404080"),
     Topic("InformationTheory", "InformationTheory", "信息论", 132.0, "#8000ff"),
@@ -84,7 +87,7 @@ DEFAULT_TOPICS: tuple[Topic, ...] = (
 
 
 def load_topics(path: Path | None) -> list[Topic]:
-    """读 topics.toml；缺失/解析失败/无 _default → 内建表 + stderr warn。"""
+    """Read topics.toml; missing/unparseable/no _default → built-in table + stderr warning."""
     if path is None or not Path(path).exists():
         if path is not None:
             print(f"warn: topics file not found: {path}; using built-in table", file=sys.stderr)
@@ -102,7 +105,7 @@ def load_topics(path: Path | None) -> list[Topic]:
 
 
 def assign_topic(module_name: str, topics: list[Topic]) -> Topic:
-    """表序优先 + 带尾点前缀匹配；未匹配 → _default。"""
+    """Table-order priority + trailing-dot prefix matching; unmatched → _default."""
     for t in topics:
         if module_name.startswith(f"Mathlib.{t.id}."):
             return t
@@ -124,7 +127,7 @@ class Modules:
 
 
 def filter_and_build(records: list[ModuleRecord]) -> Modules:
-    """过滤（只 Mathlib.*、删根伞）+ 构建内部邻接表。0 存活 → LayoutError。"""
+    """Filter to Mathlib.* (drop umbrellas) + build adjacency lists. 0 survivors → LayoutError."""
     kept = sorted(
         (r for r in records
          if r.module != "Mathlib" and r.module.startswith("Mathlib.")),
@@ -140,13 +143,13 @@ def filter_and_build(records: list[ModuleRecord]) -> Modules:
         seen: set[int] = set()
         for imp in r.imports:
             j = index.get(imp.name)
-            if j is None:            # Lean core / Std / Batteries 等外部
+            if j is None:            # external: Lean core / Std / Batteries etc.
                 skipped_external += 1
                 continue
-            if j == i or j in seen:  # 自环 / 重复 import
+            if j == i or j in seen:  # self-loop / duplicate import
                 continue
             seen.add(j)
-            deps[i].append(j)        # i import j：边 j→i（dep→importer）
+            deps[i].append(j)        # i imports j: edge j→i (dep→importer)
             importers[j].append(i)
     return Modules(
         names=[r.module for r in kept], index=index, deps=deps, importers=importers,
@@ -155,15 +158,16 @@ def filter_and_build(records: list[ModuleRecord]) -> Modules:
 
 
 def topological_order(mod: Modules) -> list[int]:
-    """Kahn 拓扑排序（依赖在前）。确定性：初始队列与出边均按索引升序（=名字序）。"""
+    """Kahn topological sort (dependencies first). Deterministic: the initial queue and
+    out-edges are both in ascending index order (= name order)."""
     n = len(mod.names)
-    indeg = [len(mod.deps[i]) for i in range(n)]   # 图向 dep→importer：入度=依赖数
+    indeg = [len(mod.deps[i]) for i in range(n)]   # dep→importer: indegree = dependency count
     queue = deque(i for i in range(n) if indeg[i] == 0)
     order: list[int] = []
     while queue:
         v = queue.popleft()
         order.append(v)
-        for u in mod.importers[v]:                 # 构建时已按名字序追加，无需再排
+        for u in mod.importers[v]:                 # already in name order; no re-sort needed
             indeg[u] -= 1
             if indeg[u] == 0:
                 queue.append(u)
@@ -175,12 +179,14 @@ def topological_order(mod: Modules) -> list[int]:
 
 
 def compute_closures(mod: Modules, topo: list[int]) -> list[int]:
-    """传递闭包位图（Python 大整数即位集；与 Lean Shake 的 Bitset 同构）。
+    """Transitive-closure bitmaps (a Python big int is a bitset; isomorphic to
+    Lean Shake's Bitset).
 
-    closure[i] 第 j 位=1 ⟺ i 传递依赖 j（不含 i 自身）。~8.8k 位 × 8.8k 节点 ≈ 10MB。
+    Bit j of closure[i] is 1 ⟺ i transitively depends on j (i itself excluded).
+    ~8.8k bits × 8.8k nodes ≈ 10MB.
     """
     closures = [0] * len(mod.names)
-    for v in topo:                      # v（依赖）先于所有 importers 处理
+    for v in topo:                      # v (the dependency) is processed before all its importers
         cv = closures[v] | (1 << v)
         for u in mod.importers[v]:
             closures[u] |= cv
@@ -188,7 +194,8 @@ def compute_closures(mod: Modules, topo: list[int]) -> list[int]:
 
 
 def transitively_reduce(mod: Modules, closures: list[int]) -> list[list[int]]:
-    """传递约简：删除可经其他直接依赖推导的边；可达性严格不变。"""
+    """Transitive reduction: drop edges derivable via another direct dependency;
+    reachability strictly unchanged."""
     reduced: list[list[int]] = []
     for b in range(len(mod.names)):
         deps_b = mod.deps[b]
@@ -198,7 +205,7 @@ def transitively_reduce(mod: Modules, closures: list[int]) -> list[list[int]]:
             for d in deps_b:
                 if d == a:
                     continue
-                if (closures[d] >> a) & 1:   # d 传递依赖 a ⟹ b 经 d 可达 a
+                if (closures[d] >> a) & 1:   # d transitively depends on a ⟹ b reaches a via d
                     redundant = True
                     break
             if not redundant:
@@ -209,8 +216,8 @@ def transitively_reduce(mod: Modules, closures: list[int]) -> list[list[int]]:
 
 def pagerank_scores(mod: Modules, alpha: float = 0.85, max_iter: int = 30,
                     tol: float = 1e-6) -> list[float]:
-    """地基性 PageRank：importer 把 rank 均分给它 import 的模块
-    （= nx.pagerank(G.reverse()) 语义）。"""
+    """Foundationality PageRank: each importer splits its rank evenly among the
+    modules it imports (= nx.pagerank(G.reverse()) semantics)."""
     n = len(mod.names)
     if n == 0:
         return []
@@ -236,7 +243,7 @@ def pagerank_scores(mod: Modules, alpha: float = 0.85, max_iter: int = 30,
 
 
 def radii(scores: list[float]) -> list[float]:
-    """r = 0.2 + 3·√t（面积感知：面积 ∝ PageRank）。"""
+    """r = 0.2 + 3·√t (area-aware: area ∝ PageRank)."""
     if not scores:
         return []
     lo, hi = min(scores), max(scores)
@@ -245,7 +252,7 @@ def radii(scores: list[float]) -> list[float]:
 
 
 def _zig(slot: int) -> int:
-    """锯齿位移序列：0, +1, -1, +2, -2, …"""
+    """Zigzag offset sequence: 0, +1, -1, +2, -2, ..."""
     if slot == 0:
         return 0
     d = (slot + 1) // 2
@@ -254,20 +261,21 @@ def _zig(slot: int) -> int:
 
 def assign_positions(mod: Modules, topo: list[int], closures: list[int],
                      node_topics: list[Topic]) -> tuple[list[float], list[float]]:
-    """x = |closure|^0.72（零闭包按拓扑序散布 -0..-9 循环）；
-    y = 带值 → 列内同 topic 直接依赖平均 → 确定性锯齿槽位。"""
+    """x = |closure|^0.72 (zero-closure modules spread cyclically over -0..-9 in
+    topo order); y = band value → mean of same-topic direct deps within the column
+    → deterministic zigzag slot."""
     n = len(mod.names)
     xs = [float(closures[i].bit_count()) ** 0.72 for i in range(n)]
     k = 0
-    for v in topo:                          # 拓扑序分配（确定性）
+    for v in topo:                          # assigned in topo order (deterministic)
         if closures[v].bit_count() == 0:
             xs[v] = float(-(k % 10))
             k += 1
     ys = [float(t.y) for t in node_topics]
     columns: dict[int, list[int]] = {}
-    for v in topo:                          # 列内元素按拓扑序进入
+    for v in topo:                          # column members enter in topo order
         columns.setdefault(int(xs[v]), []).append(v)
-    for col in sorted(columns):             # 列处理顺序 = 列值升序（确定性）
+    for col in sorted(columns):             # process columns in ascending order (deterministic)
         used: dict[int, bool] = {}
         for b in columns[col]:
             tb_id = node_topics[b].id
@@ -279,7 +287,7 @@ def assign_positions(mod: Modules, topo: list[int], closures: list[int],
             while used.get(probe, False):
                 slot += 1
                 probe = base + _zig(slot)
-                if slot > 20000:            # 安全阀：顺延到最高占用槽之上
+                if slot > 20000:            # safety valve: continue above the highest occupied slot
                     probe = (max(used) + 1) if used else base
                     while used.get(probe, False):
                         probe += 1
@@ -317,7 +325,7 @@ def build_document(mod: Modules, topo: list[int], topics: list[Topic],
             "docstring": (rec_m.docstring[:1000] if rec_m.docstring is not None else None),
         })
     edges = [[pos_of[a], pos_of[b]]
-             for b in range(n) for a in reduced[b]]      # [dep, importer]，拓扑序坐标
+             for b in range(n) for a in reduced[b]]      # [dep, importer] in topo-order coordinates
     return {
         "schemaVersion": 1,
         "meta": {
@@ -343,7 +351,7 @@ def build_document(mod: Modules, topo: list[int], topics: list[Topic],
 
 
 def write_document(doc: dict, out: Path, *, now: str | None = None) -> None:
-    """原子写出（tmp + os.replace）；now 覆盖 generatedAt（确定性测试用）。"""
+    """Atomic write (tmp + os.replace); now overrides generatedAt (for deterministic tests)."""
     if now is not None:
         doc = {**doc, "meta": {**doc["meta"], "generatedAt": now}}
     out = Path(out)
@@ -354,11 +362,11 @@ def write_document(doc: dict, out: Path, *, now: str | None = None) -> None:
 
 
 def read_structure(path: Path) -> tuple[list[ModuleRecord], int]:
-    """逐行（bytes）解码 ModuleRecord；损坏行跳过计数，累计 ≥100 中止。"""
+    """Decode ModuleRecord lines (bytes); skip/count corrupted lines, abort at ≥100."""
     decoder = msgspec.json.Decoder(ModuleRecord)
     records: list[ModuleRecord] = []
     bad = 0
-    with Path(path).open("rb") as f:   # bytes 按行（勿 splitlines：项目历史坑）
+    with Path(path).open("rb") as f:   # iterate raw byte lines; splitlines is a known pitfall
         for raw in f:
             line = raw.strip()
             if not line:
@@ -373,7 +381,7 @@ def read_structure(path: Path) -> tuple[list[ModuleRecord], int]:
 
 
 def describe_mathlib(path: Path) -> str:
-    """mathlib checkout 的 git describe；失败 → "unknown"（不阻塞）。"""
+    """git describe of the mathlib checkout; on failure → "unknown" (non-blocking)."""
     try:
         out = subprocess.run(
             ["git", "-C", str(Path(path)), "describe", "--tags", "--always", "--dirty"],
@@ -386,7 +394,8 @@ def describe_mathlib(path: Path) -> str:
 
 def run_layout(records: list[ModuleRecord], topics: list[Topic], *,
                version: str, now: str | None = None, skipped_bad_lines: int = 0) -> dict:
-    """编排全部纯函数；stderr 报告未匹配 topic 清单。确定性：同输入 byte-identical。"""
+    """Orchestrate all pure functions; report unmatched topics to stderr.
+    Determinism: identical inputs → byte-identical output."""
     mod = filter_and_build(records)
     topo = topological_order(mod)
     closures = compute_closures(mod, topo)
@@ -395,7 +404,8 @@ def run_layout(records: list[ModuleRecord], topics: list[Topic], *,
     rs = radii(pagerank_scores(mod))
     reduced = transitively_reduce(mod, closures)
 
-    # 未匹配 topic 报告：按二级前缀统计落灰带的模块数（供人工补 topics.toml）
+    # Unmatched-topic report: count gray-band modules per second-level prefix
+    # (to guide manual topics.toml additions)
     prefixes = Counter()
     for v, t in enumerate(node_topics):
         if t.id == "_default":
