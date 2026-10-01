@@ -9,6 +9,8 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from .models import ModuleRecord
+
 __all__ = [
     "Topic", "DEFAULT_TOPICS", "load_topics", "assign_topic", "assign_topics",
     "Modules", "filter_and_build", "topological_order", "LayoutError", "LayoutCycleError",
@@ -102,3 +104,44 @@ def assign_topic(module_name: str, topics: list[Topic]) -> Topic:
 
 def assign_topics(names: list[str], topics: list[Topic]) -> list[Topic]:
     return [assign_topic(nm, topics) for nm in names]
+
+
+@dataclass
+class Modules:
+    names: list[str]
+    index: dict[str, int]
+    deps: list[list[int]]
+    importers: list[list[int]]
+    skipped_external: int
+    records: list[ModuleRecord]
+
+
+def filter_and_build(records: list[ModuleRecord]) -> Modules:
+    """过滤（只 Mathlib.*、删根伞）+ 构建内部邻接表。0 存活 → LayoutError。"""
+    kept = sorted(
+        (r for r in records
+         if r.module != "Mathlib" and r.module.startswith("Mathlib.")),
+        key=lambda r: r.module,
+    )
+    if not kept:
+        raise LayoutError("no Mathlib.* modules survived filtering (filter sentinel)")
+    index = {r.module: i for i, r in enumerate(kept)}
+    deps: list[list[int]] = [[] for _ in kept]
+    importers: list[list[int]] = [[] for _ in kept]
+    skipped_external = 0
+    for i, r in enumerate(kept):
+        seen: set[int] = set()
+        for imp in r.imports:
+            j = index.get(imp.name)
+            if j is None:            # Lean core / Std / Batteries 等外部
+                skipped_external += 1
+                continue
+            if j == i or j in seen:  # 自环 / 重复 import
+                continue
+            seen.add(j)
+            deps[i].append(j)        # i import j：边 j→i（dep→importer）
+            importers[j].append(i)
+    return Modules(
+        names=[r.module for r in kept], index=index, deps=deps, importers=importers,
+        skipped_external=skipped_external, records=kept,
+    )

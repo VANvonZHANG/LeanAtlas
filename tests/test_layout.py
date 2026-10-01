@@ -5,10 +5,13 @@ import pytest
 
 from mathlib_kg.layout import (
     DEFAULT_TOPICS,
+    LayoutError,
     Topic,
     assign_topic,
+    filter_and_build,
     load_topics,
 )
+from mathlib_kg.models import Import
 
 
 class TestBands:
@@ -57,3 +60,48 @@ class TestBands:
         got = load_topics(bad)
         assert got == list(DEFAULT_TOPICS)
         assert any("warn" in line.lower() for line in capsys.readouterr().err.splitlines())
+
+
+def _decl(k: int, ns: str):
+    from mathlib_kg.models import Declaration
+
+    return Declaration(
+        name=f"{ns}.d{k}", shortName=f"d{k}", kind="def", namespace=ns,
+        sourceFile="x.lean", startLine=1, endLine=2, sourceText="def x := 1",
+    )
+
+
+def rec(name: str, imports: tuple[str, ...] = (), decl_count: int = 0,
+        deprecated: bool = False, title=None, doc=None):
+    from mathlib_kg.models import ModuleRecord
+
+    return ModuleRecord(
+        module=name, path=f"/fake/{name}.lean", title=title, docstring=doc,
+        isDeprecated=deprecated, imports=[Import(i) for i in imports],
+        declarations=[_decl(k, name) for k in range(decl_count)],
+    )
+
+
+class TestFilterAndBuild:
+    def test_drops_umbrella_and_non_mathlib(self):
+        mods = filter_and_build([
+            rec("Mathlib"),                      # 根伞
+            rec("Archive"),                      # Archive 根伞
+            rec("Archive.Examples.Foo", ("Mathlib.Order.Basic",)),
+            rec("Counterexamples.X", ("Mathlib.Data.Nat.Basic",)),
+            rec("Mathlib.Order.Basic"),
+            rec("Mathlib.Algebra.Group.Defs", ("Mathlib.Order.Basic", "Lean.Core", "Mathlib.Order.Basic")),
+        ])
+        assert mods.names == ["Mathlib.Algebra.Group.Defs", "Mathlib.Order.Basic"]  # 名字序
+        assert mods.index["Mathlib.Order.Basic"] == 1
+        assert mods.deps[0] == [1]               # 外部 Lean.Core 跳过、重复 import 去重
+        assert mods.importers[1] == [0]
+        assert mods.skipped_external == 1
+
+    def test_self_loop_skipped(self):
+        mods = filter_and_build([rec("Mathlib.A", ("Mathlib.A",))])
+        assert mods.deps[0] == []
+
+    def test_zero_alive_raises(self):
+        with pytest.raises(LayoutError, match="no Mathlib"):
+            filter_and_build([rec("Archive"), rec("Mathlib")])
