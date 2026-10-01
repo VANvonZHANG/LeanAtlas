@@ -383,6 +383,29 @@ class TestRunAndRead:
         err = capsys.readouterr().err
         assert "Experiment" in err
 
+    def test_cli_layout_reports_skipped_bad_lines(self, tmp_path):
+        import msgspec as _m
+        from typer.testing import CliRunner
+
+        from mathlib_kg.cli import app
+
+        p = tmp_path / "s.jsonl"
+        p.write_bytes(_m.json.encode(rec("Mathlib.A")) + b"\n{broken\n")  # 1 好 + 1 坏
+        out = tmp_path / "data.json"
+        topics_f = tmp_path / "t.toml"
+        topics_f.write_text(
+            '[[topic]]\nid="_default"\nlabel="Other"\nlabelZh="其他"\n'
+            'y=140.0\ncolor="#202020"\n',
+            encoding="utf-8",
+        )
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "layout", "--structure", str(p), "--out", str(out), "--topics", str(topics_f),
+        ])
+        assert result.exit_code == 0, result.output
+        data = _json.loads(out.read_text(encoding="utf-8"))
+        assert data["meta"]["stats"]["skippedBadLines"] == 1
+
     def test_cli_layout_command(self, tmp_path, monkeypatch):
         from typer.testing import CliRunner
 

@@ -126,7 +126,8 @@ def layout(
     topic_list = layout_mod.load_topics(topics)
     mathlib_path = Path(os.environ.get("MATHLIB_KG_MATHLIB_PATH", "/path/to/mathlib4"))
     version = layout_mod.describe_mathlib(mathlib_path)
-    doc = layout_mod.run_layout(records, topic_list, version=version)
+    doc = layout_mod.run_layout(records, topic_list, version=version,
+                                skipped_bad_lines=bad)
     layout_mod.write_document(doc, out)
     stats = doc["meta"]["stats"]
     typer.echo(

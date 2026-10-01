@@ -383,7 +383,7 @@ def describe_mathlib(path: Path) -> str:
 
 
 def run_layout(records: list[ModuleRecord], topics: list[Topic], *,
-               version: str, now: str | None = None) -> dict:
+               version: str, now: str | None = None, skipped_bad_lines: int = 0) -> dict:
     """编排全部纯函数；stderr 报告未匹配 topic 清单。确定性：同输入 byte-identical。"""
     mod = filter_and_build(records)
     topo = topological_order(mod)
@@ -405,5 +405,5 @@ def run_layout(records: list[ModuleRecord], topics: list[Topic], *,
     generated_at = now or datetime.now(timezone.utc).isoformat(timespec="seconds")
     return build_document(
         mod, topo, topics, node_topics, xs, ys, rs, reduced, closures,
-        version=version, generated_at=generated_at,
+        version=version, generated_at=generated_at, skipped_bad_lines=skipped_bad_lines,
     )
