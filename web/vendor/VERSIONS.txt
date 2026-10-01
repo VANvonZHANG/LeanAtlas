@@ -1,0 +1,25 @@
+sigma 3.0.3 · graphology 0.26.0 · via https://cdn.jsdelivr.net/npm/<pkg>/+esm · 2026-10-01
+
+# Resolved versions confirmed via jsdelivr response header `x-jsd-version`:
+#   sigma       -> 3.0.3   (etag W/"17a9b-IowCa+w423FNEHEIp82zCBrSrQA")
+#   graphology  -> 0.26.0  (etag W/"106ef-/sdVuNUh3OJhBOwcsMuyoKxYAlQ")
+#
+# Source URLs (downloaded 2026-10-01):
+#   https://cdn.jsdelivr.net/npm/sigma/+esm        -> sigma.esm.js       (96,923 bytes as downloaded)
+#   https://cdn.jsdelivr.net/npm/graphology/+esm   -> graphology.esm.js  (67,311 bytes)
+#
+# Self-containment:
+#   graphology.esm.js is a single self-contained file as downloaded (all deps inlined by
+#   jsdelivr's Rollup/esbuild +esm transform).
+#   sigma.esm.js as downloaded kept ONE external import:
+#     import At from "/npm/graphology-utils@2.5.2/is-graph/+esm"
+#   That absolute CDN path would break offline/local-file usage, so the official jsdelivr
+#   ESM of that exact module
+#     https://cdn.jsdelivr.net/npm/graphology-utils@2.5.2/is-graph/+esm  (578 bytes, MIT)
+#   was inlined into sigma.esm.js (function At), replacing the import statement. This is the
+#   only local modification; a comment marks the patch site at the top of the file.
+#
+# Alternatives tried and rejected (2026-10-01):
+#   - esm.sh/sigma@3.0.3?bundle : splits into relative chunk imports + /node/events.mjs (not single-file)
+#   - cdn.skypack.dev/sigma@3.0.3 : HTTP 404 (service unavailable)
+#   - unpkg ?module : does not bundle dependencies
