@@ -1,0 +1,104 @@
+"""布局引擎纯函数核心：structure.jsonl 记录 → 前端可消费的布局数据。
+
+分层：load/filter → topo → 位图闭包 → PageRank → 泳道坐标 → 传递约简 → export。
+全部函数无文件 IO（read_structure/describe_mathlib 例外，见文末）；确定性总纲：
+顺序敏感路径禁用 set/dict 迭代，一切顺序 = 拓扑序或名字排序。
+"""
+import sys
+import tomllib
+from dataclasses import dataclass
+from pathlib import Path
+
+__all__ = [
+    "Topic", "DEFAULT_TOPICS", "load_topics", "assign_topic", "assign_topics",
+    "Modules", "filter_and_build", "topological_order", "LayoutError", "LayoutCycleError",
+    "compute_closures", "transitively_reduce", "pagerank_scores", "radii",
+    "assign_positions", "build_document", "write_document", "run_layout",
+    "read_structure", "describe_mathlib",
+]
+
+
+class LayoutError(Exception):
+    """布局管线可预期的失败（过滤器全灭、损坏行超限等）。"""
+
+
+class LayoutCycleError(LayoutError):
+    """检测到 import 环（Lean 理论无环，这是句法解析数据的质量哨兵）。"""
+
+    def __init__(self, sample: list[str]):
+        super().__init__("import cycle detected: " + ", ".join(sample))
+        self.sample = sample
+
+
+@dataclass(frozen=True)
+class Topic:
+    id: str
+    label: str
+    labelZh: str
+    y: float
+    color: str
+
+
+_FALLBACK_TOPIC = Topic(id="_default", label="Other", labelZh="其他", y=140.0, color="#202020")
+
+# 内建 fallback 表（初始 = web/topics.toml 同款，27+1 条；y/color 改编自 MathlibExplorer gen_graph.py）
+DEFAULT_TOPICS: tuple[Topic, ...] = (
+    Topic("Tactic", "Tactic", "战术", 40.0, "#404080"),
+    Topic("InformationTheory", "InformationTheory", "信息论", 132.0, "#8000ff"),
+    Topic("Combinatorics", "Combinatorics", "组合数学", 130.0, "#800000"),
+    Topic("GroupTheory", "GroupTheory", "群论", 120.0, "#ff2040"),
+    Topic("FieldTheory", "FieldTheory", "域论", 125.0, "#ffff80"),
+    Topic("RingTheory", "RingTheory", "环论", 115.0, "#ff8000"),
+    Topic("RepresentationTheory", "RepresentationTheory", "表示论", 107.0, "#ff0000"),
+    Topic("Algebra", "Algebra", "代数", 100.0, "#ffff00"),
+    Topic("Init", "Init", "基础", 90.0, "#008040"),
+    Topic("NumberTheory", "NumberTheory", "数论", 90.0, "#800000"),
+    Topic("LinearAlgebra", "LinearAlgebra", "线性代数", 82.0, "#00ff00"),
+    Topic("Order", "Order", "序理论", 85.0, "#804000"),
+    Topic("Logic", "Logic", "逻辑", 75.0, "#0080ff"),
+    Topic("SetTheory", "SetTheory", "集合论", 80.0, "#ff8080"),
+    Topic("Data", "Data", "数据结构", 80.0, "#404040"),
+    Topic("AlgebraicGeometry", "AlgebraicGeometry", "代数几何", 80.0, "#6040ff"),
+    Topic("Computability", "Computability", "可计算性", 75.0, "#bfff00"),
+    Topic("ModelTheory", "ModelTheory", "模型论", 72.0, "#6040ff"),
+    Topic("Geometry", "Geometry", "几何", 70.0, "#ff80ff"),
+    Topic("CategoryTheory", "CategoryTheory", "范畴论", 62.0, "#80a0ff"),
+    Topic("Analysis", "Analysis", "分析", 57.0, "#00ffff"),
+    Topic("AlgebraicTopology", "AlgebraicTopology", "代数拓扑", 48.0, "#6040ff"),
+    Topic("Condensed", "Condensed", "凝聚数学", 48.0, "#ff0000"),
+    Topic("Topology", "Topology", "拓扑", 40.0, "#ff00ff"),
+    Topic("MeasureTheory", "MeasureTheory", "测度论", 30.0, "#8000ff"),
+    Topic("Dynamics", "Dynamics", "动力系统", 25.0, "#008040"),
+    Topic("Probability", "Probability", "概率论", 20.0, "#0000ff"),
+    _FALLBACK_TOPIC,
+)
+
+
+def load_topics(path: Path | None) -> list[Topic]:
+    """读 topics.toml；缺失/解析失败/无 _default → 内建表 + stderr warn。"""
+    if path is None or not Path(path).exists():
+        if path is not None:
+            print(f"warn: topics file not found: {path}; using built-in table", file=sys.stderr)
+        return list(DEFAULT_TOPICS)
+    try:
+        raw = tomllib.loads(Path(path).read_text(encoding="utf-8"))
+        topics = [Topic(**item) for item in raw["topic"]]
+    except Exception as exc:  # noqa: BLE001 — 任何解析失败都回退
+        print(f"warn: cannot parse {path} ({exc}); using built-in table", file=sys.stderr)
+        return list(DEFAULT_TOPICS)
+    if not any(t.id == "_default" for t in topics):
+        print("warn: topics file lacks _default; appending built-in default", file=sys.stderr)
+        topics.append(_FALLBACK_TOPIC)
+    return topics
+
+
+def assign_topic(module_name: str, topics: list[Topic]) -> Topic:
+    """表序优先 + 带尾点前缀匹配；未匹配 → _default。"""
+    for t in topics:
+        if module_name.startswith(f"Mathlib.{t.id}."):
+            return t
+    return next((t for t in topics if t.id == "_default"), _FALLBACK_TOPIC)
+
+
+def assign_topics(names: list[str], topics: list[Topic]) -> list[Topic]:
+    return [assign_topic(nm, topics) for nm in names]

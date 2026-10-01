@@ -1,0 +1,198 @@
+# topic 泳道定义：表序 = 匹配优先级；y = 带位；color = 前端渲染色。
+# 未匹配的 Mathlib.<二级前缀>.* 模块会落 _default，且 layout 运行时在 stderr
+# 报告未匹配前缀清单（含模块数），据此人工补表。
+[[topic]]
+id = "Tactic"
+label = "Tactic"
+labelZh = "战术"
+y = 40.0
+color = "#404080"
+
+[[topic]]
+id = "InformationTheory"
+label = "InformationTheory"
+labelZh = "信息论"
+y = 132.0
+color = "#8000ff"
+
+[[topic]]
+id = "Combinatorics"
+label = "Combinatorics"
+labelZh = "组合数学"
+y = 130.0
+color = "#800000"
+
+[[topic]]
+id = "GroupTheory"
+label = "GroupTheory"
+labelZh = "群论"
+y = 120.0
+color = "#ff2040"
+
+[[topic]]
+id = "FieldTheory"
+label = "FieldTheory"
+labelZh = "域论"
+y = 125.0
+color = "#ffff80"
+
+[[topic]]
+id = "RingTheory"
+label = "RingTheory"
+labelZh = "环论"
+y = 115.0
+color = "#ff8000"
+
+[[topic]]
+id = "RepresentationTheory"
+label = "RepresentationTheory"
+labelZh = "表示论"
+y = 107.0
+color = "#ff0000"
+
+[[topic]]
+id = "Algebra"
+label = "Algebra"
+labelZh = "代数"
+y = 100.0
+color = "#ffff00"
+
+[[topic]]
+id = "Init"
+label = "Init"
+labelZh = "基础"
+y = 90.0
+color = "#008040"
+
+[[topic]]
+id = "NumberTheory"
+label = "NumberTheory"
+labelZh = "数论"
+y = 90.0
+color = "#800000"
+
+[[topic]]
+id = "LinearAlgebra"
+label = "LinearAlgebra"
+labelZh = "线性代数"
+y = 82.0
+color = "#00ff00"
+
+[[topic]]
+id = "Order"
+label = "Order"
+labelZh = "序理论"
+y = 85.0
+color = "#804000"
+
+[[topic]]
+id = "Logic"
+label = "Logic"
+labelZh = "逻辑"
+y = 75.0
+color = "#0080ff"
+
+[[topic]]
+id = "SetTheory"
+label = "SetTheory"
+labelZh = "集合论"
+y = 80.0
+color = "#ff8080"
+
+[[topic]]
+id = "Data"
+label = "Data"
+labelZh = "数据结构"
+y = 80.0
+color = "#404040"
+
+[[topic]]
+id = "AlgebraicGeometry"
+label = "AlgebraicGeometry"
+labelZh = "代数几何"
+y = 80.0
+color = "#6040ff"
+
+[[topic]]
+id = "Computability"
+label = "Computability"
+labelZh = "可计算性"
+y = 75.0
+color = "#bfff00"
+
+[[topic]]
+id = "ModelTheory"
+label = "ModelTheory"
+labelZh = "模型论"
+y = 72.0
+color = "#6040ff"
+
+[[topic]]
+id = "Geometry"
+label = "Geometry"
+labelZh = "几何"
+y = 70.0
+color = "#ff80ff"
+
+[[topic]]
+id = "CategoryTheory"
+label = "CategoryTheory"
+labelZh = "范畴论"
+y = 62.0
+color = "#80a0ff"
+
+[[topic]]
+id = "Analysis"
+label = "Analysis"
+labelZh = "分析"
+y = 57.0
+color = "#00ffff"
+
+[[topic]]
+id = "AlgebraicTopology"
+label = "AlgebraicTopology"
+labelZh = "代数拓扑"
+y = 48.0
+color = "#6040ff"
+
+[[topic]]
+id = "Condensed"
+label = "Condensed"
+labelZh = "凝聚数学"
+y = 48.0
+color = "#ff0000"
+
+[[topic]]
+id = "Topology"
+label = "Topology"
+labelZh = "拓扑"
+y = 40.0
+color = "#ff00ff"
+
+[[topic]]
+id = "MeasureTheory"
+label = "MeasureTheory"
+labelZh = "测度论"
+y = 30.0
+color = "#8000ff"
+
+[[topic]]
+id = "Dynamics"
+label = "Dynamics"
+labelZh = "动力系统"
+y = 25.0
+color = "#008040"
+
+[[topic]]
+id = "Probability"
+label = "Probability"
+labelZh = "概率论"
+y = 20.0
+color = "#0000ff"
+
+[[topic]]
+id = "_default"
+label = "Other"
+labelZh = "其他"
+y = 140.0
+color = "#202020"
