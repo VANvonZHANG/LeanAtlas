@@ -11,6 +11,7 @@ from mathlib_kg.layout import (
     assign_positions,
     assign_topic,
     assign_topics,
+    build_document,
     compute_closures,
     filter_and_build,
     load_topics,
@@ -18,6 +19,7 @@ from mathlib_kg.layout import (
     radii,
     topological_order,
     transitively_reduce,
+    write_document,
 )
 from mathlib_kg.models import Import
 
@@ -271,3 +273,74 @@ class TestPositions:
         r1 = assign_positions(*self._setup(specs))
         r2 = assign_positions(*self._setup(specs))
         assert r1 == r2
+
+
+class TestDocument:
+    def _full(self):
+        specs = {
+            "Mathlib.A": (),
+            "Mathlib.B": ("Mathlib.A",),
+            "Mathlib.C": ("Mathlib.A", "Mathlib.B"),
+        }
+        mods = filter_and_build([rec(n, imps, decl_count=k, title=f"T{k}")
+                                 for k, (n, imps) in enumerate(specs.items())])
+        topo = topological_order(mods)
+        closures = compute_closures(mods, topo)
+        node_topics = assign_topics(mods.names, list(DEFAULT_TOPICS))
+        xs, ys = assign_positions(mods, topo, closures, node_topics)
+        rs = radii(pagerank_scores(mods))
+        reduced = transitively_reduce(mods, closures)
+        doc = build_document(mods, topo, list(DEFAULT_TOPICS), node_topics, xs, ys, rs, reduced, closures,
+                             version="v0-test", generated_at="2026-01-01T00:00:00")
+        return mods, doc
+
+    def test_contract_fields(self):
+        mods, doc = self._full()
+        assert doc["schemaVersion"] == 1
+        for key in ("version", "generatedAt", "scope", "stats"):
+            assert key in doc["meta"]
+        for key in ("modules", "edgesDirect", "edgesReduced", "skippedExternalImports",
+                    "skippedBadLines", "unmatchedTopicModules"):
+            assert key in doc["meta"]["stats"]
+        # 节点 = 拓扑序；A（无依赖）必须在首位
+        assert doc["nodes"][0]["name"] == "Mathlib.A"
+        node0 = doc["nodes"][0]
+        for key in ("name", "topic", "x", "y", "r", "color", "declCount",
+                    "closureSize", "isDeprecated", "title", "docstring"):
+            assert key in node0
+        # 边下标合法且方向 = [dep, importer]
+        for a, b in doc["edges"]:
+            assert 0 <= a < len(doc["nodes"]) and 0 <= b < len(doc["nodes"])
+        assert doc["meta"]["stats"]["edgesReduced"] == len(doc["edges"])
+
+    def test_docstring_truncated_to_1000(self):
+        specs = {"Mathlib.A": ()}
+        mods = filter_and_build([rec("Mathlib.A", (), doc="x" * 5000)])
+        topo = topological_order(mods)
+        closures = compute_closures(mods, topo)
+        node_topics = assign_topics(mods.names, list(DEFAULT_TOPICS))
+        xs, ys = assign_positions(mods, topo, closures, node_topics)
+        rs = radii(pagerank_scores(mods))
+        reduced = transitively_reduce(mods, closures)
+        doc = build_document(mods, topo, list(DEFAULT_TOPICS), node_topics, xs, ys, rs, reduced, closures,
+                             version="v", generated_at="t")
+        assert len(doc["nodes"][0]["docstring"]) == 1000
+
+    def test_write_document_atomic_and_now_override(self, tmp_path):
+        import json as _json
+
+        _, doc = self._full()
+        out = tmp_path / "data.json"
+        write_document(doc, out, now="2000-01-01T00:00:00")
+        on_disk = _json.loads(out.read_text(encoding="utf-8"))
+        assert on_disk["meta"]["generatedAt"] == "2000-01-01T00:00:00"
+        assert not list(tmp_path.glob("*.tmp"))          # 无残留临时文件
+
+    def test_same_input_byte_identical(self, tmp_path):
+        import msgspec as _msgspec
+
+        _, doc1 = self._full()
+        _, doc2 = self._full()
+        b1 = _msgspec.json.encode(doc1)
+        b2 = _msgspec.json.encode(doc2)
+        assert b1 == b2

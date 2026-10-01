@@ -1,14 +1,17 @@
 """布局引擎纯函数核心：structure.jsonl 记录 → 前端可消费的布局数据。
 
 分层：load/filter → topo → 位图闭包 → PageRank → 泳道坐标 → 传递约简 → export。
-全部函数无文件 IO（read_structure/describe_mathlib 例外，见文末）；确定性总纲：
+全部函数无文件 IO（read_structure/describe_mathlib/write_document 例外，见文末）；确定性总纲：
 顺序敏感路径禁用 set/dict 迭代，一切顺序 = 拓扑序或名字排序。
 """
+import os
 import sys
 import tomllib
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
+
+import msgspec
 
 from .models import ModuleRecord
 
@@ -280,3 +283,67 @@ def assign_positions(mod: Modules, topo: list[int], closures: list[int],
             ys[b] = avg + (probe - base)
             used[probe] = True
     return xs, ys
+
+
+def build_document(mod: Modules, topo: list[int], topics: list[Topic],
+                   node_topics: list[Topic], xs: list[float], ys: list[float],
+                   rs: list[float], reduced: list[list[int]], closures: list[int], *,
+                   version: str, generated_at: str, scope: str = "mathlib",
+                   skipped_bad_lines: int = 0) -> dict:
+    n = len(mod.names)
+    pos_of = [0] * n
+    for p, v in enumerate(topo):
+        pos_of[v] = p
+    unmatched = sum(1 for t in node_topics if t.id == "_default")
+    nodes = []
+    for v in topo:
+        t = node_topics[v]
+        rec_m = mod.records[v]
+        nodes.append({
+            "name": mod.names[v],
+            "topic": t.id,
+            "x": xs[v],
+            "y": ys[v],
+            "r": rs[v],
+            "color": t.color,
+            "declCount": len(rec_m.declarations),
+            "closureSize": closures[v].bit_count(),
+            "isDeprecated": rec_m.isDeprecated,
+            "title": rec_m.title,
+            "docstring": (rec_m.docstring[:1000] if rec_m.docstring is not None else None),
+        })
+    edges = [[pos_of[a], pos_of[b]]
+             for b in range(n) for a in reduced[b]]      # [dep, importer]，拓扑序坐标
+    return {
+        "schemaVersion": 1,
+        "meta": {
+            "version": version,
+            "generatedAt": generated_at,
+            "scope": scope,
+            "stats": {
+                "modules": n,
+                "edgesDirect": sum(len(d) for d in mod.deps),
+                "edgesReduced": len(edges),
+                "skippedExternalImports": mod.skipped_external,
+                "skippedBadLines": skipped_bad_lines,
+                "unmatchedTopicModules": unmatched,
+            },
+        },
+        "topics": [
+            {"id": t.id, "label": t.label, "labelZh": t.labelZh, "y": t.y, "color": t.color}
+            for t in topics
+        ],
+        "nodes": nodes,
+        "edges": edges,
+    }
+
+
+def write_document(doc: dict, out: Path, *, now: str | None = None) -> None:
+    """原子写出（tmp + os.replace）；now 覆盖 generatedAt（确定性测试用）。"""
+    if now is not None:
+        doc = {**doc, "meta": {**doc["meta"], "generatedAt": now}}
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(out.suffix + ".tmp")
+    tmp.write_bytes(msgspec.json.encode(doc))
+    os.replace(tmp, out)
