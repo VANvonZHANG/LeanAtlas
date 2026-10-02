@@ -1,31 +1,35 @@
 /-
-  Extract.lean — 从已编译的 Lean 环境抽取每条声明的依赖与规范类型，输出 JSONL 到 stdout。
-  用法（在 extract/ 目录）: lake exe extract [ModuleName] > extract.jsonl
-  默认抽取 `Mathlib`（含其全部传递 import）。复用 mathlib 已编译的 .olean。
+  Extract.lean — Extract each declaration's dependencies and pretty-printed type from a
+  compiled Lean environment; emit JSONL to stdout.
+  Usage (from the extract/ directory): lake exe extract [ModuleName] > extract.jsonl
+  Defaults to extracting `Mathlib` (including all transitive imports). Reuses mathlib's
+  precompiled .olean files.
 
-  v2：每条记录额外携带 5 个结构关系字段：
-    - extends          : [{parent, position}]   EXTENDS（结构体继承的父类）
-    - instantiates     : String | null          INSTANTIATES（instance 头常量）
-    - instancePriority : Number | null          该 instance 的优先级
+  v2: each record additionally carries 5 structural relation fields:
+    - extends          : [{parent, position}]   EXTENDS (parents a structure inherits from)
+    - instantiates     : String | null          INSTANTIATES (head constant of the instance's type)
+    - instancePriority : Number | null          priority of that instance
     - deprecatedBy     : {replacement, message, since} | null  DEPRECATED_BY
-    - additiveVersion  : String | null          HAS_ADDITIVE_VERSION（to_additive 目标）
+    - additiveVersion  : String | null          HAS_ADDITIVE_VERSION (to_additive target)
 -/
 import Lean
 import Lean.Data.Json
-import Mathlib.Tactic.ToAdditive         -- 提供 Mathlib.Tactic.ToAdditive.translations
+import Mathlib.Tactic.ToAdditive         -- provides Mathlib.Tactic.ToAdditive.translations
 
 open Lean
 
 def main (args : List String) : IO UInt32 := do
   Lean.initSearchPath (← Lean.findSysroot)
   let modName := (args.head?.getD "Mathlib").toName
-  -- loadExts := true 才会重放环境扩展（实例表/属性表/to_additive 等），
-  -- 否则 isInstanceCore / deprecatedAttr / translations 等全部读不到。
+  -- loadExts := true is required to replay environment extensions
+  -- (instance table, attribute tables, to_additive, etc.);
+  -- otherwise isInstanceCore / deprecatedAttr / translations all come back empty.
   unsafe Lean.enableInitializersExecution
   let env ← importModules #[{ module := modName }] Options.empty (loadExts := true)
   let lctx := LocalContext.empty
   let mctx : MetavarContext := {}
-  -- 用 kernel env 枚举全部常量（elaborator 的 env.constants 只是工作子集）
+  -- Enumerate all constants via the kernel env (the elaborator's env.constants is only a
+  -- working subset)
   let kenv := env.toKernelEnv
   let consts := kenv.constants.fold (init := []) (fun acc name ci => (name, ci) :: acc)
   IO.eprintln s!"[extract] const count: {consts.length}"
@@ -36,7 +40,7 @@ def main (args : List String) : IO UInt32 := do
         ci.value? (allowOpaque := true) |>.map (·.getUsedConstants) |>.getD #[]
       let mut seen : NameSet := {}
       let mut entries : Array Json := #[]
-      -- 类型中的依赖：inType=true
+      -- Dependencies occurring in the type: inType=true
       for d in typeDeps do
         if d = name then continue
         if seen.contains d then continue
@@ -45,7 +49,7 @@ def main (args : List String) : IO UInt32 := do
           Json.mkObj [("name", Json.str d.toString),
                        ("inType", Json.bool true),
                        ("inValue", Json.bool (valueDeps.contains d))]
-      -- 仅出现在值里的依赖：inType=false, inValue=true
+      -- Dependencies occurring only in the value: inType=false, inValue=true
       for d in valueDeps do
         if d = name then continue
         if seen.contains d then continue
@@ -54,31 +58,32 @@ def main (args : List String) : IO UInt32 := do
           Json.mkObj [("name", Json.str d.toString),
                        ("inType", Json.bool false),
                        ("inValue", Json.bool true)]
-      -- delab 对匿名/辅助常量可能抛异常，兜底用原始 Expr 表示
+      -- delab may throw on anonymous/auxiliary constants; fall back to the raw Expr repr
       let typeSig ← try
         let fmt ← PrettyPrinter.ppExprLegacy env mctx lctx Options.empty ci.type
         pure (toString fmt)
       catch _ =>
         pure (toString (repr ci.type))
 
-      -- v2 关系边字段
-      -- EXTENDS：仅 structure/class
+      -- v2 relation edge fields
+      -- EXTENDS: structures/classes only
       let extendsArr : Json :=
         if Lean.isStructure env name then
           let parents := Lean.getStructureParentInfo env name
           let arr : Array Json := parents.mapIdx fun i pi =>
-            -- 父结构名：v4.30.0 StructureParentInfo.structName : Name
+            -- Parent structure name: v4.30.0 StructureParentInfo.structName : Name
             let pname : Name := pi.structName
             Json.mkObj [("parent", Json.str pname.toString), ("position", Json.num i)]
           Json.arr arr
         else Json.arr #[]
-      -- INSTANTIATES：instance 的类型头常量；同时取优先级
+      -- INSTANTIATES: head constant of the instance's type; also fetch its priority
       let instState := Lean.Meta.instanceExtension.getState env
       let isInst : Bool := Lean.Meta.isInstanceCore env name
       let instPair : Json × Json :=
         if isInst then
           -- strip Pi binders (instance types are usually ∀ binders..., ClassApp)
-          -- getAppFn 只剥离 app 节点，不会下穿 forallE/mdata，所以这里先手动剥层
+          -- getAppFn only strips app nodes, it does not descend through forallE/mdata,
+          -- so strip those layers manually first
           let rec stripPi (e : Expr) : Expr :=
             match e with
             | .forallE _ _ body _ => stripPi body
@@ -94,7 +99,7 @@ def main (args : List String) : IO UInt32 := do
         else (Json.null, Json.null)
       let instName : Json := instPair.1
       let instPrio : Json := instPair.2
-      -- DEPRECATED_BY：读 deprecated 属性表
+      -- DEPRECATED_BY: read the deprecated attribute table
       let depObj : Json :=
         match Lean.Linter.deprecatedAttr.getParam? env name with
         | some d =>
@@ -103,25 +108,30 @@ def main (args : List String) : IO UInt32 := do
             ("message", d.text?.map Json.str |>.getD Json.null),
             ("since", d.since?.map Json.str |>.getD Json.null)]
         | none => Json.null
-      -- HAS_ADDITIVE_VERSION：读 to_additive 翻译表
+      -- HAS_ADDITIVE_VERSION: read the to_additive translation table
       let addName : Json :=
         match Mathlib.Tactic.ToAdditive.translations.find? env name with
         | some info => Json.str info.translation.toString
         | none => Json.null
 
-      -- v2.5 字段/构造子：仅类型常量（.inductInfo）输出构造子；structure 额外输出扁平字段
-      -- Step 2 核对（v4.30.0 源码 + 实证）：
-      --   * getStructureFieldsFlattened env n : Array Name —— 返回【短名】单组件名
-      --     （如 `#[toD1, d1, d2]`，含 toParent 强转 + 继承扁平 + 自有字段）。
-      --   * 继承字段的投影函数名【不是】`子结构.字段` —— Lean 复用父结构投影
-      --     （如 `D2 extends D1` 的 `d1` → 实际投影 `D1.d1`，非子合成 `D2.d1`）。
-      --     故先用 findField? 定位持有该字段的结构，再取其真实 projFn；
-      --     子对象字段（如 `toD1`）则由 findField? 直接返回子结构，projFn 即 `D2.toD1`。
-      --   * InductiveVal.ctors : List Name —— 已含【全限定】构造子名，直接用（先 toArray 配合 mapIdx）。
+      -- v2.5 fields/constructors: only type constants (.inductInfo) emit constructors;
+      -- structures additionally emit flattened fields.
+      -- Step 2 verification (v4.30.0 sources + empirical checks):
+      --   * getStructureFieldsFlattened env n : Array Name — returns SHORT single-component
+      --     names (e.g. `#[toD1, d1, d2]`: the toParent coercion + flattened inherited fields
+      --     + own fields).
+      --   * The projection name of an inherited field is NOT `child.field` — Lean reuses the
+      --     parent structure's projection (e.g. `d1` of `D2 extends D1` resolves to the actual
+      --     projection `D1.d1`, not a child-synthesized `D2.d1`).
+      --     So first use findField? to locate the structure owning the field, then take its real
+      --     projFn; for a subobject field (e.g. `toD1`), findField? directly returns the child
+      --     structure, whose projFn is `D2.toD1`.
+      --   * InductiveVal.ctors : List Name — already holds FULLY-QUALIFIED constructor names;
+      --     use as-is (call toArray first to pair with mapIdx).
       let ctorsArr : Json :=
         match ci with
         | .inductInfo iv =>
-          -- iv.ctors : List Name；先 toArray 再 mapIdx，与 fieldsArr 同为 Array Json
+          -- iv.ctors : List Name; toArray then mapIdx so it is an Array Json like fieldsArr
           Json.arr (iv.ctors.toArray.mapIdx fun i n =>
             Json.mkObj [("name", Json.str n.toString), ("position", Json.num i)])
         | _ => Json.arr #[]
@@ -129,11 +139,14 @@ def main (args : List String) : IO UInt32 := do
         match ci with
         | .inductInfo _ =>
           if Lean.isStructure env name then
-            -- Step 2 实证：getStructureFieldsFlattened 返回扁平字段【短名】，
-            -- 但继承字段的投影函数名并不总是 `子结构.字段` —— 若该字段实属父结构，
-            -- Lean 复用父结构的投影（如 `D2 extends D1` 的 `d1` → 实际投影 `D1.d1`，
-            -- 而非子合成 `D2.d1`）。子对象字段（如 `toD1`）则是子结构自有投影。
-            -- 故对每个扁平字段用 findField? 定位持有它的结构，再取其真实 projFn。
+            -- Step 2 empirical finding: getStructureFieldsFlattened returns SHORT names of the
+            -- flattened fields, but the projection name of an inherited field is not always
+            -- `child.field` — if the field is actually owned by a parent structure, Lean reuses
+            -- the parent's projection (e.g. `d1` of `D2 extends D1` resolves to the actual
+            -- projection `D1.d1`, not a child-synthesized `D2.d1`). Subobject fields (e.g.
+            -- `toD1`) use the child structure's own projection.
+            -- So for each flattened field, locate its owning structure via findField?, then
+            -- take the real projFn.
             let fs := Lean.getStructureFieldsFlattened env name
             Json.arr (fs.mapIdx fun i f =>
               let owner : Name := Lean.findField? env name f |>.getD name
@@ -156,7 +169,8 @@ def main (args : List String) : IO UInt32 := do
         ("constructors", ctorsArr)]
       IO.println obj.compress
     catch _ =>
-      -- 罕见：整条处理失败，输出最小记录，保证不丢常量、不中断
+      -- Rare: processing the whole record failed; emit a minimal record so no constant is
+      -- lost and the run is not interrupted
       IO.println (Json.mkObj [("name", Json.str name.toString),
                               ("typeSignature", Json.str ""),
                               ("deps", Json.arr #[])]).compress
