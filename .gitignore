@@ -12,3 +12,6 @@ build/
 build/
 .superpowers/
 web/data.json
+web/node_modules/
+web/dist/
+web/tsconfig.tsbuildinfo
