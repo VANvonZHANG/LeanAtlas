@@ -11,7 +11,7 @@ build/
 .lake/
 build/
 .superpowers/
-web/data.json
+web/public/data.json
 web/node_modules/
 web/dist/
 web/tsconfig.tsbuildinfo

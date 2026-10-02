@@ -31,12 +31,12 @@ const fail = (msg) => {
 };
 let Sigma, Graph;
 try {
-  Sigma = (await import('./vendor/sigma.esm.js')).default;
-  Graph = (await import('./vendor/graphology.esm.js')).default;
+  Sigma = (await import('../vendor/sigma.esm.js')).default;
+  Graph = (await import('../vendor/graphology.esm.js')).default;
 } catch (e) { fail('Failed to load vendor bundles (finish the Task 11 download first): ' + e); }
 
 let data;
-try { data = await (await fetch('data.json')).json(); }
+try { data = await (await fetch('../public/data.json')).json(); }
 catch (e) { fail('Failed to load data.json (run mathlib-kg layout first): ' + e); }
 if (data.schemaVersion !== 1) fail('Unsupported schemaVersion: ' + data.schemaVersion);
 

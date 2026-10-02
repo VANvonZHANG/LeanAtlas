@@ -125,7 +125,7 @@ def drop() -> None:
 def layout(
     structure: Path = typer.Option(Path("structure.jsonl"), "--structure",
                                    help="path to structure.jsonl"),
-    out: Path = typer.Option(Path("web/data.json"), "--out", help="output data.json path"),
+    out: Path = typer.Option(Path("web/public/data.json"), "--out", help="output data.json path"),
     topics: Path = typer.Option(Path("web/topics.toml"), "--topics", help="topic table path"),
     scope: str = typer.Option("mathlib", "--scope", help="P0 supports mathlib only"),
 ) -> None:
