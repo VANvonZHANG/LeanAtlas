@@ -31,10 +31,11 @@ describe("computeNodeColor", () => {
     expect(computeNodeColor("X", attrs, st)).toBe("#ffff00");
     expect(computeNodeColor("X", { color: "#00ffff", topic: "Analysis" }, st)).toBe("rgba(0,255,255,0.15)");
   });
-  it("hover restores dimmed nodes when no selection", () => {
-    const st = { selection: null, topicFilter: "Algebra", hover: "X" };
+  it("hover restores dimmed node and its direct neighbors when no selection", () => {
+    const st = { selection: null, topicFilter: "Algebra", hover: { node: "X", neighbors: ["N1"] } };
     const out = { color: "#00ffff", topic: "Analysis" };
     expect(computeNodeColor("X", out, st)).toBe("#00ffff"); // hovered itself restored
-    expect(computeNodeColor("Y", out, st)).toBe("rgba(0,255,255,0.15)");
+    expect(computeNodeColor("N1", out, st)).toBe("#00ffff"); // direct neighbor restored
+    expect(computeNodeColor("Y", out, st)).toBe("rgba(0,255,255,0.15)"); // non-neighbor stays dimmed
   });
 });

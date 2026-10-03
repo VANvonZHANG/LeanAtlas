@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useSigma } from "@react-sigma/core";
 import type { SigmaNodeEventPayload, SigmaStageEventPayload } from "sigma/types";
+import { neighborsOf } from "../graph/bfs";
 import { pinNode } from "../graph/pin";
 import { hoverStore, selectionStore } from "../state/stores";
 
@@ -15,7 +16,11 @@ export default function EventsBinder() {
   const sigma = useSigma();
   useEffect(() => {
     const g = sigma.getGraph();
-    const onEnterNode = ({ node }: SigmaNodeEventPayload) => hoverStore.set(node);
+    const onEnterNode = ({ node }: SigmaNodeEventPayload) => {
+      // carry the direct neighbors so computeNodeColor can restore them too (spec §5)
+      const n = neighborsOf(g, node);
+      hoverStore.set({ node, neighbors: [...n.deps, ...n.dependents] });
+    };
     const onLeaveNode = () => hoverStore.set(null);
     const onClickNode = ({ node }: SigmaNodeEventPayload) => {
       // toggle-off stays local; the pin side is the shared pinNode (graph/pin.ts)

@@ -89,7 +89,7 @@ const edgeReducer: Settings["edgeReducer"] = (edge, data) => {
       (sel.closure.has(target) || target === sel.node);
     return internal ? { ...data, ...HIGHLIGHT_EDGE } : { ...data, hidden: true };
   }
-  if (hov && (source === hov || target === hov)) {
+  if (hov && (source === hov.node || target === hov.node)) {
     return { ...data, ...HIGHLIGHT_EDGE };
   }
   // density channel: salient top-k edges dark, everything else hidden

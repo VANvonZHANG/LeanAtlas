@@ -1,5 +1,6 @@
 export interface Selection { node: string; neighbors: string[]; closure: Set<string> }
-export interface ColorState { selection: Selection | null; topicFilter: string | null; hover: string | null }
+export interface Hover { node: string; neighbors: string[] }
+export interface ColorState { selection: Selection | null; topicFilter: string | null; hover: Hover | null }
 
 const DARK = "#151a26";
 
@@ -22,7 +23,8 @@ export function computeNodeColor(
   }
   if (st.topicFilter) {
     if (attrs.topic === st.topicFilter) return attrs.color;
-    if (st.hover === name) return attrs.color; // hover restores
+    // hover restores the node itself + its direct neighbors (spec §5)
+    if (st.hover && (st.hover.node === name || st.hover.neighbors.includes(name))) return attrs.color;
     return hexToRgba(attrs.color, 0.15);
   }
   return attrs.color;
