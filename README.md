@@ -76,6 +76,28 @@ MATHLIB_KG_SKIP_LEAN=0 pytest tests/test_extract.py
 MATHLIB_KG_RUN_ACCEPTANCE=1 MATHLIB_KG_NEO4J_PASSWORD=... pytest tests/test_acceptance.py -v -s
 ```
 
+## Web explorer
+
+`web/` contains a zero-backend SPA (Vite + React + sigma.js) that renders the
+module panorama from a static `data.json` produced by the layout CLI. The
+schema of that file is documented in `web/SCHEMA.md`.
+
+```bash
+# generate the data (writes web/public/data.json)
+mathlib-kg layout --structure structure.jsonl --topics web/topics.toml --out web/public/data.json
+
+cd web
+pnpm install
+pnpm dev                      # dev server
+pnpm build && pnpm preview    # production build + local preview
+pnpm vitest run               # unit tests (pure-logic layer)
+```
+
+`web/offline/index.html` is a dependency-free POC of the same panorama: serve
+`web/` statically (e.g. `python -m http.server -d web 8899`) and open
+`/offline/`; it loads the vendored sigma/graphology bundles directly and needs
+no build step.
+
 ## v1 范围与后续
 
 v1（本包）= 地基：节点 + 命名空间树 + import 边 + 精确依赖 DAG。

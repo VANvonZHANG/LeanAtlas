@@ -33,7 +33,7 @@ let Sigma, Graph;
 try {
   Sigma = (await import('../vendor/sigma.esm.js')).default;
   Graph = (await import('../vendor/graphology.esm.js')).default;
-} catch (e) { fail('Failed to load vendor bundles (finish the Task 11 download first): ' + e); }
+} catch (e) { fail('Failed to load vendor bundles: ' + e); }
 
 let data;
 try { data = await (await fetch('../public/data.json')).json(); }
