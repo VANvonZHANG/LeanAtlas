@@ -1,3 +1,12 @@
 html, body, #root { margin: 0; height: 100%; background: #0b0e14; color: #e8e8e8;
   font-family: system-ui, -apple-system, sans-serif; }
 .placeholder { display: flex; align-items: center; justify-content: center; height: 100%; }
+
+/* react-sigma's default --sigma-background-color is white; keep the POC's dark bg */
+#graph-container .react-sigma { --sigma-background-color: transparent; }
+
+#graph-container { position: absolute; inset: 0; }
+.topic-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.topic-label { position: absolute; transform: translate(-50%, -50%); font-size: 20px;
+  font-weight: 600; color: #cfd8ff; opacity: .8;
+  text-shadow: 0 0 8px #000, 0 0 3px #000; white-space: nowrap; }
