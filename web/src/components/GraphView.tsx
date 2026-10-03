@@ -5,7 +5,7 @@ import { SigmaContainer, useSigma } from "@react-sigma/core";
 // sigma v3 registers edge renderers as WebGL programs, not canvas draw functions:
 // @sigma/edge-curve 3.x exports EdgeCurveProgram (default) instead of drawCurvedEdge.
 import EdgeCurveProgram from "@sigma/edge-curve";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import type Graph from "graphology";
 import type { Settings } from "sigma/settings";
 import { computeNodeColor } from "../graph/computeNodeColor";
@@ -117,7 +117,11 @@ const SIGMA_SETTINGS: Partial<Settings> = {
   edgeReducer,
 };
 
-export default function GraphView({ graph, topics }: { graph: Graph; topics: TopicRow[] }) {
+/**
+ * `children` render inside SigmaContainer so overlay components that need the
+ * sigma instance (e.g. SearchBox via useSigma) can be passed from App.
+ */
+export default function GraphView({ graph, topics, children }: { graph: Graph; topics: TopicRow[]; children?: ReactNode }) {
   // reducers are module-scope (see above), so the current graph instance is shared
   // via a module-scope reference, assigned during render — before any effect (and
   // thus before sigma processes the graph) can run. The graph prop never changes
@@ -136,6 +140,7 @@ export default function GraphView({ graph, topics }: { graph: Graph; topics: Top
         <RefreshOnStoreChange />
         <EventsBinder />
         <TopicOverlay topics={topics} />
+        {children}
       </SigmaContainer>
     </div>
   );

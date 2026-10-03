@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useSigma } from "@react-sigma/core";
 import type { SigmaNodeEventPayload, SigmaStageEventPayload } from "sigma/types";
-import { closureOf, neighborsOf } from "../graph/bfs";
+import { pinNode } from "../graph/pin";
 import { hoverStore, selectionStore } from "../state/stores";
 
 /**
@@ -18,18 +18,13 @@ export default function EventsBinder() {
     const onEnterNode = ({ node }: SigmaNodeEventPayload) => hoverStore.set(node);
     const onLeaveNode = () => hoverStore.set(null);
     const onClickNode = ({ node }: SigmaNodeEventPayload) => {
+      // toggle-off stays local; the pin side is the shared pinNode (graph/pin.ts)
       const cur = selectionStore.get();
       if (cur && cur.node === node) {
         selectionStore.set(null);
         return;
       }
-      const n = neighborsOf(g, node);
-      const cl = closureOf(g, node);
-      selectionStore.set({
-        node,
-        neighbors: [...n.deps, ...n.dependents],
-        closure: new Set([...cl.deps, ...cl.dependents]),
-      });
+      pinNode(g, node);
     };
     const onClickStage = (_payload: SigmaStageEventPayload) => selectionStore.set(null);
     sigma.on("enterNode", onEnterNode);
