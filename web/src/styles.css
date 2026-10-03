@@ -20,3 +20,16 @@ html, body, #root { margin: 0; height: 100%; background: #0b0e14; color: #e8e8e8
 .search-box ul { list-style:none; margin:4px 0 0; padding:0; max-height:260px; overflow:auto; }
 .search-box li { padding:4px 8px; font-size:12px; cursor:pointer; }
 .search-box li.active { background:#1d2740; }
+/* T8 leftover: the pinned indicator inside the search box (now styled; the
+   dedicated InfoPanel below is the full pinned-node readout). */
+.search-box .pinned { margin-top:6px; font-size:12px; opacity:.7; }
+
+/* PNG export: the .exporting class is toggled on #graph-container around
+   html-to-image's capture, hiding the DOM panels it contains (topic labels
+   are .topic-label, not .panel, and stay in the capture). */
+.exporting .panel { display: none !important; }
+.info-panel { left:12px; bottom:12px; max-width:340px; }
+.info-panel .name { font-weight:600; }
+.info-panel .title { font-size:13px; opacity:.9; }
+.info-panel .meta { font-size:12px; opacity:.7; }
+.export-btn { right:12px; bottom:12px; cursor:pointer; border:none; color:inherit; font:inherit; }
