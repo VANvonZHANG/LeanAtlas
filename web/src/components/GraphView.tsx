@@ -17,6 +17,7 @@ import {
   lodEdgesHiddenForRatio,
   lodEdgesHiddenStore,
 } from "../state/visibleEdges";
+import { useUrlSync } from "../hooks/useUrlSync";
 import EventsBinder from "./EventsBinder";
 import TopicOverlay from "./TopicOverlay";
 import type { TopicRow } from "../graph/loadData";
@@ -49,6 +50,12 @@ function RefreshOnStoreChange() {
       cam.removeListener("updated", onCam);
     };
   }, [sigma]);
+  // URL deep-link sync (restore on mount + debounced hash push-back). Declared
+  // AFTER the effect above: camera.setState emits "updated" synchronously, so
+  // the restore call inside must find the LOD listener already attached —
+  // otherwise a restored zoomed-out camera (z > LOD_EDGES_MAX_RATIO) would not
+  // gate the density channel.
+  useUrlSync(sigma, true);
   return null;
 }
 
