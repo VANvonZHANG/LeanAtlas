@@ -22,7 +22,13 @@ export default function ExportButton() {
     const container = document.getElementById("graph-container")!;
     container.classList.add("exporting");
     try {
-      const url = await toPng(container, { pixelRatio: 2 });
+      const url = await toPng(container, {
+        pixelRatio: 2,
+        // match the app background (styles.css html/body #0b0e14): without it
+        // html-to-image leaves the snapshot transparent, and the dark-themed
+        // graph renders near-invisible on light viewers.
+        backgroundColor: "#0b0e14",
+      });
       const sel = selectionStore.get();
       const focus = sel ? sel.node.split(".").pop()!.toLowerCase() : "overview";
       const a = document.createElement("a");
