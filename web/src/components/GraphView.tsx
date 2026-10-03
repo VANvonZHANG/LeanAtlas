@@ -11,12 +11,15 @@ import type { Settings } from "sigma/settings";
 import { computeNodeColor } from "../graph/computeNodeColor";
 import { edgeKey } from "../graph/edgeSalience";
 import { hoverStore, selectionStore, topicFilterStore } from "../state/stores";
-import { effectiveEdgesStore, initEdgeRanking, lodEdgesHiddenStore } from "../state/visibleEdges";
+import {
+  effectiveEdgesStore,
+  initEdgeRanking,
+  lodEdgesHiddenForRatio,
+  lodEdgesHiddenStore,
+} from "../state/visibleEdges";
 import EventsBinder from "./EventsBinder";
 import TopicOverlay from "./TopicOverlay";
 import type { TopicRow } from "../graph/loadData";
-
-const LOD_EDGE_HIDE_RATIO = 0.15;
 
 /**
  * SigmaContainer child: store changes -> sigma.refresh() (reducers read store
@@ -29,11 +32,15 @@ function RefreshOnStoreChange() {
     const unsubs = [selectionStore, topicFilterStore, hoverStore, effectiveEdgesStore].map((s) =>
       s.subscribe(refresh),
     );
-    // Camera LOD: zooming in past LOD_EDGE_HIDE_RATIO (sigma ratio < 1 while
-    // zooming in) disables the density channel; the effectiveEdgesStore
-    // subscription above performs the refresh on flag flips.
+    // Camera LOD: zoomed-out overview: density edges become overdraw noise;
+    // zoomed-in keeps them. sigma's camera ratio shrinks below 1 when zooming
+    // IN and grows above 1 when zooming OUT, so the gate hides the density
+    // channel once ratio exceeds LOD_EDGES_MAX_RATIO (> only, boundary stays
+    // visible); the effectiveEdgesStore subscription above performs the
+    // refresh on flag flips. lodEdgesHiddenForRatio lives in visibleEdges.ts
+    // so tests can pin the mapping (this module pulls WebGL at import time).
     const cam = sigma.getCamera();
-    const onCam = () => lodEdgesHiddenStore.set(cam.getState().ratio < LOD_EDGE_HIDE_RATIO);
+    const onCam = () => lodEdgesHiddenStore.set(lodEdgesHiddenForRatio(cam.getState().ratio));
     cam.on("updated", onCam);
     return () => {
       unsubs.forEach((u) => u());

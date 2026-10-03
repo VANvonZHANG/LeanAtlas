@@ -4,6 +4,8 @@ import { edgeDensityStore } from "./stores";
 import {
   effectiveEdgesStore,
   initEdgeRanking,
+  LOD_EDGES_MAX_RATIO,
+  lodEdgesHiddenForRatio,
   lodEdgesHiddenStore,
   visibleEdgesStore,
 } from "./visibleEdges";
@@ -32,11 +34,19 @@ describe("visibleEdges stores", () => {
     expect(visibleEdgesStore.get().keys).toEqual(new Set(["X→Y", "X→Z", "Y→Z"]));
   });
 
-  it("LOD gate overrides the density channel entirely", () => {
+  it("LOD gate hides density edges when zoomed OUT (ratio > LOD_EDGES_MAX_RATIO)", () => {
     edgeDensityStore.set(1);
-    lodEdgesHiddenStore.set(true);
+    // zoomed-out overview (sigma ratio > 2): density edges become overdraw
+    // noise -> gate hides the whole density channel, override and all
+    lodEdgesHiddenStore.set(lodEdgesHiddenForRatio(2.5));
+    expect(lodEdgesHiddenForRatio(2.5)).toBe(true);
     expect(effectiveEdgesStore.get()).toEqual({ keys: new Set(), enabled: false });
-    lodEdgesHiddenStore.set(false);
+    // boundary: exactly LOD_EDGES_MAX_RATIO stays visible — hidden is strictly
+    // greater only (> not >=)
+    expect(lodEdgesHiddenForRatio(LOD_EDGES_MAX_RATIO)).toBe(false);
+    // zoomed in (ratio < 2, e.g. the default 1): density channel intact
+    expect(lodEdgesHiddenForRatio(1)).toBe(false);
+    lodEdgesHiddenStore.set(lodEdgesHiddenForRatio(1));
     expect(effectiveEdgesStore.get().enabled).toBe(true);
     expect(effectiveEdgesStore.get().keys).toEqual(new Set(["X→Y", "X→Z", "Y→Z"]));
   });
