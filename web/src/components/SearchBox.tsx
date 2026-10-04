@@ -1,20 +1,10 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSigma } from "@react-sigma/core";
 import { buildSearchIndex, searchDocs } from "../graph/search";
 import { flyTo, pinNode } from "../graph/pin";
 import { selectionStore } from "../state/stores";
+import { useAtomValue } from "../hooks/useAtomValue";
 import type { DataDoc } from "../graph/loadData";
-
-// @nanostores/react is not a dependency of this project (see EdgeSlider); an
-// atom integrates with React via the built-in hook. atom.get() returns the
-// stored Selection by reference, stable between .set() calls, so the snapshot
-// (which contains a Set) satisfies getSnapshot's identity requirement.
-function useSelection() {
-  return useSyncExternalStore(
-    (onChange) => selectionStore.subscribe(onChange),
-    () => selectionStore.get(),
-  );
-}
 
 /** Must render inside SigmaContainer (uses useSigma) — mounted via GraphView children. */
 export default function SearchBox({ doc }: { doc: DataDoc }) {
@@ -25,7 +15,7 @@ export default function SearchBox({ doc }: { doc: DataDoc }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const index = useMemo(() => buildSearchIndex(doc.nodes), [doc]);
   const results = useMemo(() => searchDocs(index, q), [index, q]);
-  const sel = useSelection();
+  const sel = useAtomValue(selectionStore);
 
   useEffect(() => { setCursor(0); }, [q]);
 

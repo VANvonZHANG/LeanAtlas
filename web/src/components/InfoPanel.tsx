@@ -1,22 +1,11 @@
-import { useSyncExternalStore } from "react";
 import { useSigma } from "@react-sigma/core";
 import { selectionStore } from "../state/stores";
-
-// EdgeSlider pattern (the brief's `@nanostores/react` is not a dependency):
-// the atom integrates with React via the built-in hook. atom.get() returns
-// the stored Selection by reference, stable between .set() calls, so the
-// snapshot (which contains a Set) satisfies getSnapshot's identity requirement.
-function useSelection() {
-  return useSyncExternalStore(
-    (onChange) => selectionStore.subscribe(onChange),
-    () => selectionStore.get(),
-  );
-}
+import { useAtomValue } from "../hooks/useAtomValue";
 
 /** Must render inside SigmaContainer (uses useSigma) — mounted via GraphView children. */
 export default function InfoPanel() {
   const sigma = useSigma();
-  const sel = useSelection();
+  const sel = useAtomValue(selectionStore);
   if (!sel) return null;
   // buildGraph sets these attributes on every node (loadData.ts); the
   // graphology Attributes type is a plain index signature, hence the casts.

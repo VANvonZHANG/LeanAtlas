@@ -1,18 +1,8 @@
-import { useSyncExternalStore } from "react";
 import { edgeDensityStore } from "../state/stores";
-
-// @nanostores/react is not a dependency of this project; a nanostores atom is
-// an external store that integrates with React via the built-in hook. The
-// number snapshot is a primitive, so identity-stability is guaranteed.
-function useEdgeDensity(): number {
-  return useSyncExternalStore(
-    (onChange) => edgeDensityStore.subscribe(onChange),
-    () => edgeDensityStore.get(),
-  );
-}
+import { useAtomValue } from "../hooks/useAtomValue";
 
 export default function EdgeSlider() {
-  const density = useEdgeDensity();
+  const density = useAtomValue(edgeDensityStore);
   return (
     <label className="panel edge-slider">
       edges {Math.round(density * 100)}%
