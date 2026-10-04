@@ -11,6 +11,7 @@ import type { Settings } from "sigma/settings";
 import { computeNodeColor } from "../graph/computeNodeColor";
 import { edgeKey } from "../graph/edgeSalience";
 import { hoverStore, selectionStore, topicFilterStore } from "../state/stores";
+import { planRefresh, type RefreshPlan } from "../state/refreshPlan";
 import {
   effectiveEdgesStore,
   initEdgeRanking,
@@ -23,16 +24,47 @@ import TopicOverlay from "./TopicOverlay";
 import type { TopicRow } from "../graph/loadData";
 
 /**
- * SigmaContainer child: store changes -> sigma.refresh() (reducers read store
- * snapshots), plus the camera LOD listener that gates the edge-density channel.
+ * SigmaContainer child: store changes -> planned refreshes (reducers read
+ * store snapshots), plus the camera LOD listener that gates the edge-density
+ * channel. Hover transitions refresh partially (O(degree)); every other
+ * kind changes the whole graph's colors or edge visibility, so it takes a
+ * full refresh — frame-gated to at most one per rAF, because sigma's
+ * scheduleRefresh only debounces the render, not the O(V+E) reducer loop.
  */
 function RefreshOnStoreChange() {
   const sigma = useSigma();
   useEffect(() => {
-    const refresh = () => sigma.refresh();
-    const unsubs = [selectionStore, topicFilterStore, hoverStore, effectiveEdgesStore].map((s) =>
-      s.subscribe(refresh),
-    );
+    const g = sigma.getGraph();
+    let fullQueued = false;
+    let fullRaf = 0;
+    const applyPlan = (plan: RefreshPlan) => {
+      if (plan.kind === "partial") {
+        // sigma 3.0.3 (verified in dist source): partialGraph re-runs the
+        // reducers and rewrites the WebGL buffer slices of the listed items
+        // synchronously; schedule:true only rAF-debounces the render. Hidden
+        // items keep their program slots, so visibility flips are safe.
+        sigma.refresh({
+          partialGraph: { nodes: plan.nodes, edges: plan.edges },
+          skipIndexation: true,
+          schedule: true,
+        });
+        return;
+      }
+      if (fullQueued) return;
+      fullQueued = true;
+      fullRaf = requestAnimationFrame(() => {
+        fullQueued = false;
+        sigma.refresh();
+      });
+    };
+    // nanostores subscribe passes (value, oldValue); every path goes through
+    // the tested planner (the non-hover kinds ignore their values).
+    const unsubs = [
+      hoverStore.subscribe((to, from) => applyPlan(planRefresh("hover", g, from, to))),
+      selectionStore.subscribe(() => applyPlan(planRefresh("selection", g, undefined, undefined))),
+      topicFilterStore.subscribe(() => applyPlan(planRefresh("topicFilter", g, undefined, undefined))),
+      effectiveEdgesStore.subscribe(() => applyPlan(planRefresh("edges", g, undefined, undefined))),
+    ];
     // Camera LOD: zoomed-out overview: density edges become overdraw noise;
     // zoomed-in keeps them. sigma's camera ratio shrinks below 1 when zooming
     // IN and grows above 1 when zooming OUT, so the gate hides the density
@@ -48,6 +80,7 @@ function RefreshOnStoreChange() {
       // remove own handler by reference (not removeAllListeners), matching
       // EventsBinder: sibling/StrictMode-registered handlers must survive.
       cam.removeListener("updated", onCam);
+      cancelAnimationFrame(fullRaf); // no-op if the frame already fired
     };
   }, [sigma]);
   // URL deep-link sync (restore on mount + debounced hash push-back). Declared
