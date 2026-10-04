@@ -55,6 +55,18 @@ describe("planRefresh(hover)", () => {
     expect((plan as { nodes: string[] }).nodes).toEqual(["A", "H", "X"]);
     expect(edgePairs(g, (plan as { edges: string[] }).edges)).toEqual(["A-H", "A-X"]);
   });
+
+  it("nanostores immediate-callback oldValue (undefined) is treated as no side", () => {
+    const g = fixture();
+    expect(planRefresh("hover", g, undefined, null)).toEqual({
+      kind: "partial",
+      nodes: [],
+      edges: [],
+    });
+    const enter = planRefresh("hover", g, undefined, HOVER_H);
+    expect((enter as { nodes: string[] }).nodes).toEqual(["A", "B", "H"]);
+    expect(edgePairs(g, (enter as { edges: string[] }).edges)).toEqual(["A-H", "B-H"]);
+  });
 });
 
 describe("planRefresh(non-hover kinds)", () => {

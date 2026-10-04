@@ -22,8 +22,8 @@ export type StoreKind = "hover" | "selection" | "topicFilter" | "edges";
 export function planRefresh(
   kind: "hover",
   graph: Graph,
-  from: Hover | null,
-  to: Hover | null,
+  from: Hover | null | undefined,
+  to: Hover | null | undefined,
 ): RefreshPlan;
 export function planRefresh(
   kind: "selection" | "topicFilter" | "edges",
@@ -40,7 +40,10 @@ export function planRefresh(
   if (kind !== "hover") return { kind: "full" };
   // implementation params stay `unknown` (widest) so both overloads are
   // signature-compatible; the guard narrows for the hover branch.
-  const sides = [from, to].filter((h): h is Hover => h !== null);
+  // `!= null` (not `!==`): nanostores subscribe fires immediately with
+  // oldValue === undefined despite typing it as T, so undefined must be
+  // treated as "no side" exactly like null.
+  const sides = [from, to].filter((h): h is Hover => h != null);
   const nodes = new Set<string>();
   const edges = new Set<string>();
   for (const h of sides) {
