@@ -1,24 +1,22 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSigma } from "@react-sigma/core";
+import { projectAnchors, type Anchor } from "../graph/projection";
 import { topicFilterStore } from "../state/stores";
+import { useAtomValue } from "../hooks/useAtomValue";
 import type { TopicRow } from "../graph/loadData";
 
-interface Anchor { id: string; label: string; x: number; y: number }
-
-// EdgeSlider pattern: a nanostores atom consumed via the built-in hook; the
-// string|null snapshot is a primitive, so identity-stability is guaranteed.
-function useTopicFilter(): string | null {
-  return useSyncExternalStore(
-    (onChange) => topicFilterStore.subscribe(onChange),
-    () => topicFilterStore.get(),
-  );
-}
-
+/**
+ * Topic band labels as a DOM overlay. Anchors are computed once; positions
+ * are written straight to the label elements on every afterRender —
+ * translate3d only (no layout), no React state — so camera motion never
+ * schedules a React commit. React owns only the user-facing bits: the
+ * filtered class and the click handler.
+ */
 export default function TopicOverlay({ topics }: { topics: TopicRow[] }) {
   const sigma = useSigma();
-  const filter = useTopicFilter();
+  const filter = useAtomValue(topicFilterStore);
   const [anchors, setAnchors] = useState<Anchor[]>([]);
-  const [projections, setProjections] = useState<{ id: string; left: number; top: number; visible: boolean }[]>([]);
+  const labelRefs = useRef(new Map<string, HTMLDivElement>());
 
   useEffect(() => {
     const g = sigma.getGraph();
@@ -39,19 +37,32 @@ export default function TopicOverlay({ topics }: { topics: TopicRow[] }) {
   }, [sigma, topics]);
 
   useEffect(() => {
-    const project = () => {
-      const w = sigma.getContainer().clientWidth, h = sigma.getContainer().clientHeight;
-      setProjections(
-        anchors.map((a) => {
-          const p = sigma.graphToViewport({ x: a.x, y: a.y });
-          const visible = p.x > -80 && p.x < w + 80 && p.y > -24 && p.y < h + 24;
-          return { id: a.id, left: p.x, top: p.y, visible };
-        }),
+    if (anchors.length === 0) return;
+    const writePositions = () => {
+      const container = sigma.getContainer();
+      const projected = projectAnchors(
+        anchors,
+        { width: container.clientWidth, height: container.clientHeight },
+        (p) => sigma.graphToViewport(p),
       );
+      for (const p of projected) {
+        const el = labelRefs.current.get(p.id);
+        if (!el) continue;
+        // transform-only positioning: no layout; the -50% centering that used
+        // to live in CSS is folded into the written matrix.
+        el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%, -50%)`;
+        el.style.display = p.visible ? "" : "none";
+      }
     };
-    project();
-    sigma.on("afterRender", project);
-    return () => { sigma.removeListener("afterRender", project); };
+    // run once now (refs are attached before this effect body runs) instead
+    // of waiting for sigma's first afterRender.
+    writePositions();
+    sigma.on("afterRender", writePositions);
+    return () => { sigma.removeListener("afterRender", writePositions); };
+    // NB: labelRefs is NOT cleared here — React StrictMode remounts effects
+    // without re-running ref callbacks, so a cleanup-time clear would orphan
+    // the labels (the map stays empty while the divs live on). Ref callbacks
+    // own map membership via real DOM attach/detach.
   }, [sigma, anchors]);
 
   // The overlay container stays pointer-events:none, but each label opts back
@@ -63,22 +74,22 @@ export default function TopicOverlay({ topics }: { topics: TopicRow[] }) {
   // no stopPropagation is needed.
   return (
     <div className="topic-overlay">
-      {projections.map((p) => {
-        const a = anchors.find((x) => x.id === p.id)!;
-        return (
-          <div
-            key={p.id}
-            className={"topic-label" + (filter === a.id ? " filtered" : "")}
-            style={{ left: p.left, top: p.top, display: p.visible ? "" : "none" }}
-            onClick={() => {
-              const cur = topicFilterStore.get();
-              topicFilterStore.set(cur === a.id ? null : a.id);
-            }}
-          >
-            {a.label}
-          </div>
-        );
-      })}
+      {anchors.map((a) => (
+        <div
+          key={a.id}
+          ref={(el) => {
+            if (el) labelRefs.current.set(a.id, el);
+            else labelRefs.current.delete(a.id);
+          }}
+          className={"topic-label" + (filter === a.id ? " filtered" : "")}
+          onClick={() => {
+            const cur = topicFilterStore.get();
+            topicFilterStore.set(cur === a.id ? null : a.id);
+          }}
+        >
+          {a.label}
+        </div>
+      ))}
     </div>
   );
 }
