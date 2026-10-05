@@ -33,11 +33,14 @@ describe("loadData", () => {
     const got = await loadData();
     expect(got.nodes).toHaveLength(3);
   });
-  it("real public/data.json loads and passes version check", async () => {
+  it("loads real v2 public/data.json and builds the graph from it", async () => {
     const raw = readFileSync(resolve(__dirname, "../../public/data.json"), "utf8");
     globalThis.fetch = (async () => new Response(raw)) as typeof fetch;
     const got = await loadData();
     expect(got.nodes.length).toBeGreaterThan(8000);
+    const g = buildGraph(got);
+    expect(g.order).toBeGreaterThan(8000);
+    expect(g.size).toBeGreaterThan(0);
   });
 });
 

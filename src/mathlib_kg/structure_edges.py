@@ -5,7 +5,9 @@ Consumes extract.jsonl as emitted by Extract.lean v3, where every record
 carries its defining ``module`` (compiler truth via the module index — this
 covers auto-generated and ``_private`` declarations that regex source parsing
 cannot see). Both endpoints of every relation are resolved to modules with
-exact-name lookups; cross-module pairs whose modules are both in the alive
+exact-name lookups — fields targets additionally fall back to the owner
+prefix before the final dot when the projection constant itself is not
+recorded; cross-module pairs whose modules are both in the alive
 layout set survive, deduped and sorted for byte-identical output.
 """
 from __future__ import annotations

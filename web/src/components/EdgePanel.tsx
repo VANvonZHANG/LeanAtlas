@@ -1,4 +1,4 @@
-import { EDGE_STYLE_DEFAULTS, type RelKind } from "../graph/edgeStyle";
+import { EDGE_STYLE_DEFAULTS, cloneEdgeStyleDefaults, type RelKind } from "../graph/edgeStyle";
 import { edgeDensityStore, edgeStyleStore, structureTogglesStore } from "../state/stores";
 import { useAtomValue } from "../hooks/useAtomValue";
 
@@ -34,7 +34,7 @@ export default function EdgePanel() {
         {STRUCTURE_ROWS.map(({ key, label }) => (
           <div key={key} className="style-row">
             <input
-              type="checkbox" checked={toggles[key]}
+              type="checkbox" aria-label={label} checked={toggles[key]}
               onChange={(e) => structureTogglesStore.set({ ...structureTogglesStore.get(), [key]: e.target.checked })}
             />
             <span className="style-label">{label}</span>
@@ -55,7 +55,7 @@ export default function EdgePanel() {
           <input type="range" min={0} max={1} step={0.05} value={style.import.curvature}
             onChange={(e) => setStyle("import", { curvature: Number(e.target.value) })} />
         </div>
-        <button className="reset" onClick={() => edgeStyleStore.set({ ...EDGE_STYLE_DEFAULTS })}>
+        <button className="reset" onClick={() => edgeStyleStore.set(cloneEdgeStyleDefaults())}>
           reset
         </button>
       </details>

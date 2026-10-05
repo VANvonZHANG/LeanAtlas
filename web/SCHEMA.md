@@ -50,8 +50,9 @@ structureEdges semantics:
   each section is deduplicated and sorted by `(srcIdx, dstIdx)`.
 - **Direction**: src = the extending / instantiating / field-declaring module,
   dst = the module owning the parent class / instantiated class / field
-  projection — i.e. the edge points at the more foundational thing, matching
-  the dependency → dependent direction of `edges`.
+  projection — i.e. the edge points at the more foundational thing. Note the
+pair order is the reverse of `edges`: structureEdges go [derived, foundational]
+while `edges` pairs go [dep, importer].
 - **Scope**: only cross-module pairs where **both** endpoints are alive layout
   modules survive (same filter as nodes); self-loops and unresolvable
   endpoints are dropped. Relation truth comes from extract.jsonl v3's per-record

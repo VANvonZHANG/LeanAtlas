@@ -77,3 +77,17 @@ def test_deterministic_sorted_by_name_pair():
     ]
     out = resolve_structure_edges(records, build_module_map(records), ALIVE)
     assert out["instantiates"] == [("Mathlib.A", "Mathlib.Core"), ("Mathlib.C", "Mathlib.B")]
+
+
+def test_extends_target_never_uses_fields_fallback():
+    """Fallback resolution (owner prefix) is fields-only: an extends parent
+    like 'Mathlib.B.Parent' must not resolve through its recorded owner
+    'Mathlib.B' when 'Mathlib.B.Parent' itself is absent from the map."""
+    records = [
+        rec("Mathlib.A.Child", "Mathlib.A",
+            extends=[{"parent": "Mathlib.B.Parent", "position": 0}]),
+        rec("Mathlib.B", "Mathlib.B"),  # owner prefix present; extends must not use it
+    ]
+    m = build_module_map(records)
+    out = resolve_structure_edges(records, m, ALIVE)
+    assert out["extends"] == []

@@ -123,8 +123,9 @@ let activeGraph: Graph | null = null;
 const edgeReducer: Settings["edgeReducer"] = (edge, data) => {
   if (!activeGraph) return data;
   const [source, target] = activeGraph.extremities(edge);
-  const rel = ((data.rel as RelKind | undefined) ?? "import") as RelKind;
-  const st = edgeStyleStore.get()[rel];
+  const styles = edgeStyleStore.get();
+    const rel = (data.rel as RelKind | undefined) ?? "import";
+    const st = styles[rel];
   const sel = selectionStore.get();
   const hov = hoverStore.get();
   const closureEnd = (n: string) => sel !== null && (n === sel.node || sel.closure.has(n));
@@ -142,7 +143,7 @@ const edgeReducer: Settings["edgeReducer"] = (edge, data) => {
     return { ...data, color: st.color, curvature: st.curvature, size: incident ? 1.2 : 0.7 };
   }
   // import channel: P1 semantics, style colors/curvature from the store
-  const imp = edgeStyleStore.get().import;
+  const imp = styles.import;
   if (sel) {
     return closureEnd(source) && closureEnd(target)
       ? { ...data, color: "#5b7bd5", curvature: imp.curvature, size: 1 }

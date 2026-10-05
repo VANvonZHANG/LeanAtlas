@@ -445,7 +445,7 @@ class TestRunAndRead:
         assert result.exit_code == 2
 
 
-def test_build_document_structure_edges_and_stats(tmp_path):
+def test_build_document_structure_edges_and_stats():
     """v2 golden: structureEdges mapped to topo indices, sorted, in stats."""
     # minimal 3-module chain: B imports A, C imports B (rec() fixture as elsewhere)
     from mathlib_kg import layout as layout_mod

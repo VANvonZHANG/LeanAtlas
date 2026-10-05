@@ -9,3 +9,16 @@ export const EDGE_STYLE_DEFAULTS: Record<RelKind, EdgeStyle> = {
   instantiates: { color: "#4ec9b0", curvature: 0.45 },
   fields: { color: "#b48ead", curvature: 0.65 },
 };
+
+/** Fresh per-relation style map; nested EdgeStyle objects are copied, never
+ * aliased — resets/inits must not share mutable state with the defaults. */
+export function cloneEdgeStyleDefaults(): Record<RelKind, EdgeStyle> {
+  // explicit per-key spread: Object.fromEntries returns an index-signature
+  // type that does not satisfy Record<RelKind, EdgeStyle> under tsc
+  return {
+    import: { ...EDGE_STYLE_DEFAULTS.import },
+    extends: { ...EDGE_STYLE_DEFAULTS.extends },
+    instantiates: { ...EDGE_STYLE_DEFAULTS.instantiates },
+    fields: { ...EDGE_STYLE_DEFAULTS.fields },
+  };
+}
