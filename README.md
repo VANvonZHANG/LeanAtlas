@@ -1,4 +1,4 @@
-# mathlib_kg
+# leanatlas
 
 把 Lean mathlib 解析 + 抽取成 Neo4j 知识图谱（v1：结构骨架 + 精确声明级依赖 DAG）。
 
@@ -19,7 +19,7 @@
 ## 安装
 
 ```bash
-cd mathlib_kg
+cd leanatlas
 pip install -e ".[dev]"
 ```
 
@@ -45,19 +45,19 @@ cd extract && lake build extract
 export MATHLIB_KG_NEO4J_USER=neo4j MATHLIB_KG_NEO4J_PASSWORD=...
 
 # 解析全部 Mathlib/ 源码
-mathlib-kg parse --mathlib-path /path/to/mathlib4 --out structure.jsonl
+leanatlas parse --mathlib-path /path/to/mathlib4 --out structure.jsonl
 
 # 抽取全部依赖（最贵一步；lake exe 抽取整个 mathlib 环境）
 ( cd extract && lake exe extract Mathlib > ../extract.jsonl )
 
 # 装载（先建 schema，按 模块→命名空间→声明→import→依赖 顺序）
-mathlib-kg load --structure structure.jsonl --extract extract.jsonl
+leanatlas load --structure structure.jsonl --extract extract.jsonl
 
 # 查询
-mathlib-kg query "MATCH (:Declaration {name:'Nat'})<-[:DEPENDS_ON*1..6]-(d) RETURN count(DISTINCT d)"
+leanatlas query "MATCH (:Declaration {name:'Nat'})<-[:DEPENDS_ON*1..6]-(d) RETURN count(DISTINCT d)"
 
 # 清空重跑
-mathlib-kg drop
+leanatlas drop
 ```
 
 ## 验收 / 测试
@@ -84,7 +84,7 @@ schema of that file is documented in `web/SCHEMA.md`.
 
 ```bash
 # generate the data (writes web/public/data.json)
-mathlib-kg layout --structure structure.jsonl --topics web/topics.toml --out web/public/data.json
+leanatlas layout --structure structure.jsonl --topics web/topics.toml --out web/public/data.json
 
 cd web
 pnpm install

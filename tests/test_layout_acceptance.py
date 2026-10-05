@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from mathlib_kg.layout import (
+from leanatlas.layout import (
     compute_closures,
     filter_and_build,
     load_topics,

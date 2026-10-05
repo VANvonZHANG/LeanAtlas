@@ -2,10 +2,10 @@ import os
 
 import pytest
 
-from mathlib_kg.config import get_config
-from mathlib_kg.load_neo4j import connect, load_declarations, load_dependencies, load_fields_constructors, load_relationships
-from mathlib_kg.models import CtorItem, Declaration, Dep, DeprecatedBy, ExtractRecord, ExtendsItem, FieldItem, ModuleRecord
-from mathlib_kg.neo4j_schema import apply_schema, drop_kg, drop_kg_batched
+from leanatlas.config import get_config
+from leanatlas.load_neo4j import connect, load_declarations, load_dependencies, load_fields_constructors, load_relationships
+from leanatlas.models import CtorItem, Declaration, Dep, DeprecatedBy, ExtractRecord, ExtendsItem, FieldItem, ModuleRecord
+from leanatlas.neo4j_schema import apply_schema, drop_kg, drop_kg_batched
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("MATHLIB_KG_NEO4J_PASSWORD"), reason="requires Neo4j credentials"

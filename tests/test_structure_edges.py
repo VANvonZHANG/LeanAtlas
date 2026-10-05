@@ -1,5 +1,5 @@
 """Unit tests for module-layer structure-edge resolution (P1.5)."""
-from mathlib_kg.structure_edges import (
+from leanatlas.structure_edges import (
     REL_TYPES,
     build_module_map,
     resolve_structure_edges,

@@ -1,4 +1,4 @@
-from mathlib_kg.config import get_config
+from leanatlas.config import get_config
 
 
 def test_config_defaults(monkeypatch):

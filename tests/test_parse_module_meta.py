@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from mathlib_kg.parse_source import parse_module_meta
+from leanatlas.parse_source import parse_module_meta
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample.lean"
 

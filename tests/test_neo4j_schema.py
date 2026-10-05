@@ -3,8 +3,8 @@ import os
 import pytest
 from neo4j import GraphDatabase
 
-from mathlib_kg.config import get_config
-from mathlib_kg.neo4j_schema import apply_schema, drop_kg
+from leanatlas.config import get_config
+from leanatlas.neo4j_schema import apply_schema, drop_kg
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("MATHLIB_KG_NEO4J_PASSWORD"),

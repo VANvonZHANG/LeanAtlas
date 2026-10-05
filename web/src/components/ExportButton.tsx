@@ -33,7 +33,7 @@ export default function ExportButton() {
       const focus = sel ? sel.node.split(".").pop()!.toLowerCase() : "overview";
       const a = document.createElement("a");
       a.href = url;
-      a.download = `mathlib-kg-${focus}-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}.png`;
+      a.download = `leanatlas-${focus}-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}.png`;
       a.click();
     } finally {
       container.classList.remove("exporting");

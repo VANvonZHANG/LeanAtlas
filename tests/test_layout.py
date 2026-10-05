@@ -4,7 +4,7 @@ import json as _json
 
 import pytest
 
-from mathlib_kg.layout import (
+from leanatlas.layout import (
     DEFAULT_TOPICS,
     LayoutCycleError,
     LayoutError,
@@ -22,7 +22,7 @@ from mathlib_kg.layout import (
     transitively_reduce,
     write_document,
 )
-from mathlib_kg.models import Import
+from leanatlas.models import Import
 
 
 class TestBands:
@@ -77,7 +77,7 @@ class TestBands:
 
 
 def _decl(k: int, ns: str):
-    from mathlib_kg.models import Declaration
+    from leanatlas.models import Declaration
 
     return Declaration(
         name=f"{ns}.d{k}", shortName=f"d{k}", kind="def", namespace=ns,
@@ -87,7 +87,7 @@ def _decl(k: int, ns: str):
 
 def rec(name: str, imports: tuple[str, ...] = (), decl_count: int = 0,
         deprecated: bool = False, title=None, doc=None):
-    from mathlib_kg.models import ModuleRecord
+    from leanatlas.models import ModuleRecord
 
     return ModuleRecord(
         module=name, path=f"/fake/{name}.lean", title=title, docstring=doc,
@@ -357,7 +357,7 @@ class TestDocument:
 
 class TestRunAndRead:
     def test_read_structure_counts_bad_lines(self, tmp_path):
-        from mathlib_kg.layout import read_structure
+        from leanatlas.layout import read_structure
         p = tmp_path / "s.jsonl"
         good = rec("Mathlib.A")
         lines = [_json.dumps(_json.loads(__import__("msgspec").json.encode(good).decode()))]
@@ -366,14 +366,14 @@ class TestRunAndRead:
         assert len(records) == 1 and bad == 2
 
     def test_read_structure_aborts_at_100_bad_lines(self, tmp_path):
-        from mathlib_kg.layout import LayoutError, read_structure
+        from leanatlas.layout import LayoutError, read_structure
         p = tmp_path / "s.jsonl"
         p.write_text("\n".join(["{bad"] * 100) + "\n", encoding="utf-8")
         with pytest.raises(LayoutError, match="100"):
             read_structure(p)
 
     def test_run_layout_end_to_end_deterministic(self, capsys):
-        from mathlib_kg.layout import run_layout
+        from leanatlas.layout import run_layout
         records = [
             rec("Mathlib.Order.Basic"),
             rec("Mathlib.Algebra.Group.Defs", ("Mathlib.Order.Basic",), decl_count=5),
@@ -396,7 +396,7 @@ class TestRunAndRead:
         import msgspec as _m
         from typer.testing import CliRunner
 
-        from mathlib_kg.cli import app
+        from leanatlas.cli import app
 
         p = tmp_path / "s.jsonl"
         p.write_bytes(_m.json.encode(rec("Mathlib.A")) + b"\n{broken\n")  # 1 good + 1 bad
@@ -419,7 +419,7 @@ class TestRunAndRead:
     def test_cli_layout_command(self, tmp_path, monkeypatch):
         from typer.testing import CliRunner
 
-        from mathlib_kg.cli import app
+        from leanatlas.cli import app
         p = tmp_path / "s.jsonl"
         import msgspec as _m
         p.write_bytes(_m.json.encode(rec("Mathlib.A")).replace(b"}", b"}\n"))
@@ -439,7 +439,7 @@ class TestRunAndRead:
     def test_cli_layout_rejects_unknown_scope(self, tmp_path):
         from typer.testing import CliRunner
 
-        from mathlib_kg.cli import app
+        from leanatlas.cli import app
         runner = CliRunner()
         result = runner.invoke(app, ["layout", "--scope", "all"])
         assert result.exit_code == 2
@@ -448,7 +448,7 @@ class TestRunAndRead:
 def test_build_document_structure_edges_and_stats():
     """v2 golden: structureEdges mapped to topo indices, sorted, in stats."""
     # minimal 3-module chain: B imports A, C imports B (rec() fixture as elsewhere)
-    from mathlib_kg import layout as layout_mod
+    from leanatlas import layout as layout_mod
 
     records = [rec("Mathlib.A"), rec("Mathlib.B", ("Mathlib.A",)),
                rec("Mathlib.C", ("Mathlib.B",))]
@@ -466,7 +466,7 @@ def test_build_document_structure_edges_and_stats():
 
 def test_run_layout_missing_extract_warns_and_empty(tmp_path, capsys):
     """--extract file absent → stderr warning + empty structureEdges, not a crash."""
-    from mathlib_kg import layout as layout_mod
+    from leanatlas import layout as layout_mod
 
     records = [rec("Mathlib.A"), rec("Mathlib.B", ("Mathlib.A",))]
     doc = layout_mod.run_layout(records, list(DEFAULT_TOPICS), version="t", now="t",
@@ -480,7 +480,7 @@ def test_run_layout_missing_extract_warns_and_empty(tmp_path, capsys):
 def test_run_layout_present_extract_end_to_end(tmp_path):
     """Pins the full integration seam: synthetic extract.jsonl through
     run_layout(extract_path=...) into indexed structureEdges + stats."""
-    from mathlib_kg import layout as layout_mod
+    from leanatlas import layout as layout_mod
 
     # same 3-module chain as the golden test; alive = {Mathlib.A, Mathlib.B, Mathlib.C}
     NAME_A, NAME_B, NAME_C = "Mathlib.A", "Mathlib.B", "Mathlib.C"

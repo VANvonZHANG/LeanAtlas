@@ -1,5 +1,5 @@
-from mathlib_kg.models import module_from_json
-from mathlib_kg.parse_source import parse_file, write_structure_jsonl
+from leanatlas.models import module_from_json
+from leanatlas.parse_source import parse_file, write_structure_jsonl
 
 
 def test_parse_file(tmp_path):

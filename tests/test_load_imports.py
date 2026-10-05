@@ -2,10 +2,10 @@ import os
 
 import pytest
 
-from mathlib_kg.config import get_config
-from mathlib_kg.load_neo4j import connect, load_imports, load_modules
-from mathlib_kg.models import Import, ModuleRecord
-from mathlib_kg.neo4j_schema import apply_schema, drop_kg
+from leanatlas.config import get_config
+from leanatlas.load_neo4j import connect, load_imports, load_modules
+from leanatlas.models import Import, ModuleRecord
+from leanatlas.neo4j_schema import apply_schema, drop_kg
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("MATHLIB_KG_NEO4J_PASSWORD"), reason="requires Neo4j credentials"

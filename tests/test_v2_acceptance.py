@@ -13,9 +13,9 @@ from pathlib import Path
 import pytest
 from neo4j import GraphDatabase
 
-from mathlib_kg.config import get_config
-from mathlib_kg.models import module_to_json
-from mathlib_kg.parse_source import parse_file
+from leanatlas.config import get_config
+from leanatlas.models import module_to_json
+from leanatlas.parse_source import parse_file
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("MATHLIB_KG_RUN_V2_ACCEPTANCE") != "1"
@@ -44,9 +44,9 @@ def test_v2_four_edges_on_fixture(tmp_path):
     struct.write_text(module_to_json(rec) + "\n", encoding="utf-8")
 
     # 3) Full load (drop first; the single load path carries v2 edges)
-    subprocess.run(["python", "-m", "mathlib_kg.cli", "drop"], cwd=REPO, check=True)
+    subprocess.run(["python", "-m", "leanatlas.cli", "drop"], cwd=REPO, check=True)
     subprocess.run(
-        ["python", "-m", "mathlib_kg.cli", "load",
+        ["python", "-m", "leanatlas.cli", "load",
          "--structure", str(struct), "--extract", str(extract)],
         cwd=REPO, check=True,
     )
@@ -83,5 +83,5 @@ def test_v2_four_edges_on_fixture(tmp_path):
             if add is not None:
                 assert add[0] == "StructEdgesFixture.addFoo"
     finally:
-        subprocess.run(["python", "-m", "mathlib_kg.cli", "drop"], cwd=REPO, check=True)
+        subprocess.run(["python", "-m", "leanatlas.cli", "drop"], cwd=REPO, check=True)
         driver.close()

@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mathlib-kg"
+name = "leanatlas"
 version = "0.1.0"
 description = "Build a Neo4j knowledge graph from Lean mathlib"
 requires-python = ">=3.12"
@@ -12,7 +12,6 @@ license = { text = "MIT" }
 keywords = ["lean", "lean4", "mathlib", "knowledge-graph", "visualization"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Lean",
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
@@ -30,10 +29,10 @@ dev = [
 ]
 
 [project.scripts]
-mathlib-kg = "mathlib_kg.cli:app"
+leanatlas = "leanatlas.cli:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mathlib_kg"]
+packages = ["src/leanatlas"]
 
 [tool.ruff]
 line-length = 100

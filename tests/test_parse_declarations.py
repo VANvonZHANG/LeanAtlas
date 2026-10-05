@@ -1,4 +1,4 @@
-from mathlib_kg.parse_source import parse_declarations
+from leanatlas.parse_source import parse_declarations
 
 TEXT = (
     "namespace Quandles\n"

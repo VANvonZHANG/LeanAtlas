@@ -3,7 +3,7 @@ import os
 import pytest
 from typer.testing import CliRunner
 
-from mathlib_kg.cli import app
+from leanatlas.cli import app
 
 runner = CliRunner()
 pytestmark = pytest.mark.skipif(

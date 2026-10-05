@@ -1,6 +1,6 @@
 from datetime import date
 
-from mathlib_kg.models import (
+from leanatlas.models import (
     Declaration,
     Dep,
     ExtractRecord,
@@ -56,7 +56,7 @@ def test_extract_roundtrip():
     assert extract_from_json(s) == e
 
 
-from mathlib_kg.models import ExtendsItem, DeprecatedBy
+from leanatlas.models import ExtendsItem, DeprecatedBy
 
 
 def test_extract_record_extends_roundtrip():
@@ -121,7 +121,7 @@ def test_extract_record_new_fields_default_when_absent():
     assert back.additiveVersion is None
 
 
-from mathlib_kg.models import FieldItem, CtorItem
+from leanatlas.models import FieldItem, CtorItem
 
 
 def test_extract_record_fields_roundtrip():

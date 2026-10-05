@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>mathlib_kg · Module Panorama POC</title>
+<title>leanatlas · Module Panorama POC</title>
 <style>
   html, body { margin: 0; height: 100%; background: #0b0e14; color: #e8e8e8;
                font-family: system-ui, -apple-system, sans-serif; }
@@ -37,7 +37,7 @@ try {
 
 let data;
 try { data = await (await fetch('../public/data.json')).json(); }
-catch (e) { fail('Failed to load data.json (run mathlib-kg layout first): ' + e); }
+catch (e) { fail('Failed to load data.json (run leanatlas layout first): ' + e); }
 if (data.schemaVersion !== 2) fail('Unsupported schemaVersion: ' + data.schemaVersion);
 
 const g = new Graph({ type: 'directed', multi: false });

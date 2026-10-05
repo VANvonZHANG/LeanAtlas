@@ -1,4 +1,4 @@
-"""mathlib-kg CLI: parse / load / query / drop / layout."""
+"""leanatlas CLI: parse / load / query / drop / layout."""
 import os
 from pathlib import Path
 

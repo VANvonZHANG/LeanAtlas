@@ -14,9 +14,9 @@ from pathlib import Path
 import pytest
 from neo4j import GraphDatabase
 
-from mathlib_kg.config import get_config
-from mathlib_kg.models import module_to_json
-from mathlib_kg.parse_source import parse_file
+from leanatlas.config import get_config
+from leanatlas.models import module_to_json
+from leanatlas.parse_source import parse_file
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("MATHLIB_KG_RUN_ACCEPTANCE") != "1"
@@ -50,9 +50,9 @@ def test_init_end_to_end(tmp_path):
     assert len(recs) > 1000  # full closure
 
     # 3) load
-    subprocess.run(["python", "-m", "mathlib_kg.cli", "drop"], cwd=REPO, check=True)
+    subprocess.run(["python", "-m", "leanatlas.cli", "drop"], cwd=REPO, check=True)
     subprocess.run(
-        ["python", "-m", "mathlib_kg.cli", "load",
+        ["python", "-m", "leanatlas.cli", "load",
          "--structure", str(struct), "--extract", str(extract)],
         cwd=REPO, check=True,
     )
@@ -76,5 +76,5 @@ def test_init_end_to_end(tmp_path):
             ).single()[0]
             assert rev > 0
     finally:
-        subprocess.run(["python", "-m", "mathlib_kg.cli", "drop"], cwd=REPO, check=True)
+        subprocess.run(["python", "-m", "leanatlas.cli", "drop"], cwd=REPO, check=True)
         driver.close()
