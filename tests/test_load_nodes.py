@@ -3,8 +3,7 @@ import os
 import pytest
 
 from leanatlas.config import get_config
-from leanatlas.load_neo4j import (connect, load_declarations, load_modules,
-                                   load_namespaces)
+from leanatlas.load_neo4j import connect, load_declarations, load_modules, load_namespaces
 from leanatlas.models import Declaration, Import, ModuleRecord
 from leanatlas.neo4j_schema import apply_schema, drop_kg
 

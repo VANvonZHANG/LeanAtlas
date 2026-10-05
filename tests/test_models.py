@@ -1,9 +1,13 @@
 from datetime import date
 
 from leanatlas.models import (
+    CtorItem,
     Declaration,
     Dep,
+    DeprecatedBy,
+    ExtendsItem,
     ExtractRecord,
+    FieldItem,
     Import,
     ModuleRecord,
     extract_from_json,
@@ -54,9 +58,6 @@ def test_extract_roundtrip():
     )
     s = extract_to_json(e)
     assert extract_from_json(s) == e
-
-
-from leanatlas.models import ExtendsItem, DeprecatedBy
 
 
 def test_extract_record_extends_roundtrip():
@@ -119,9 +120,6 @@ def test_extract_record_new_fields_default_when_absent():
     assert back.instancePriority is None
     assert back.deprecatedBy is None
     assert back.additiveVersion is None
-
-
-from leanatlas.models import FieldItem, CtorItem
 
 
 def test_extract_record_fields_roundtrip():

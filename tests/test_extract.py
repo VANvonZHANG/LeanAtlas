@@ -31,7 +31,6 @@ def _run_extract(module: str) -> list[dict]:
 
 def test_extract_init_nat_basic():
     recs = _run_extract("Init.Data.Nat.Basic")
-    by_name = {r["name"]: r for r in recs}
     # Structural completeness
     for r in recs[:30]:
         assert "name" in r

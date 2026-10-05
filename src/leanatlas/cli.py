@@ -10,7 +10,7 @@ from . import load_neo4j as ldb
 from . import parse_source
 from .config import get_config
 from .models import extract_from_json, module_from_json
-from .neo4j_schema import apply_schema, drop_kg, drop_kg_batched
+from .neo4j_schema import apply_schema, drop_kg_batched
 
 app = typer.Typer(add_completion=False, help="Build a Neo4j knowledge graph from mathlib.")
 
@@ -156,7 +156,8 @@ def layout(
     typer.echo(
         f"layout: modules={stats['modules']} edgesDirect={stats['edgesDirect']} "
         f"edgesReduced={stats['edgesReduced']} "
-        f"structure(E/I/F)={stats['extendsEdges']}/{stats['instantiatesEdges']}/{stats['fieldsEdges']} "
+        f"structure(E/I/F)={stats['extendsEdges']}/{stats['instantiatesEdges']}/"
+        f"{stats['fieldsEdges']} "
         f"badLines={bad} → {out}"
     )
 

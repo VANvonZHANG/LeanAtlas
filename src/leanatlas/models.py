@@ -1,6 +1,5 @@
 """Data structures for structure.jsonl and extract.jsonl records."""
 from datetime import date
-from typing import Optional
 
 import msgspec
 
@@ -23,19 +22,19 @@ class Declaration(msgspec.Struct):
     endLine: int
     sourceText: str
     # Optional/defaulted fields after
-    docstring: Optional[str] = None
+    docstring: str | None = None
     attrs: list[str] = msgspec.field(default_factory=list)
     isProtected: bool = False
     isExternal: bool = False
     isDeprecated: bool = False
-    deprecatedSince: Optional[date] = None
+    deprecatedSince: date | None = None
 
 
 class ModuleRecord(msgspec.Struct):
     module: str
     path: str
-    docstring: Optional[str] = None
-    title: Optional[str] = None
+    docstring: str | None = None
+    title: str | None = None
     tags: list[str] = msgspec.field(default_factory=list)
     authors: list[str] = msgspec.field(default_factory=list)
     isDeprecated: bool = False
@@ -57,8 +56,8 @@ class ExtendsItem(msgspec.Struct):
 
 class DeprecatedBy(msgspec.Struct):
     replacement: str
-    message: Optional[str] = None
-    since: Optional[str] = None
+    message: str | None = None
+    since: str | None = None
 
 
 class FieldItem(msgspec.Struct):
@@ -78,10 +77,10 @@ class ExtractRecord(msgspec.Struct):
     # v2 structural relationship edges (empty/null by default, backward
     # compatible with old extract.jsonl)
     extends: list[ExtendsItem] = msgspec.field(default_factory=list)
-    instantiates: Optional[str] = None
-    instancePriority: Optional[int] = None
-    deprecatedBy: Optional[DeprecatedBy] = None
-    additiveVersion: Optional[str] = None
+    instantiates: str | None = None
+    instancePriority: int | None = None
+    deprecatedBy: DeprecatedBy | None = None
+    additiveVersion: str | None = None
     # v2.5 fields/constructors (empty lists by default, backward compatible)
     fields: list[FieldItem] = msgspec.field(default_factory=list)
     constructors: list[CtorItem] = msgspec.field(default_factory=list)

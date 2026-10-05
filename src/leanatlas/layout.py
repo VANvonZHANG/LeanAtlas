@@ -19,7 +19,12 @@ from pathlib import Path
 import msgspec
 
 from .models import ModuleRecord
-from .structure_edges import REL_TYPES, build_module_map, iter_extract_records, resolve_structure_edges
+from .structure_edges import (
+    REL_TYPES,
+    build_module_map,
+    iter_extract_records,
+    resolve_structure_edges,
+)
 
 __all__ = [
     "Topic", "DEFAULT_TOPICS", "load_topics", "assign_topic", "assign_topics",

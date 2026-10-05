@@ -41,6 +41,16 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+# N815: struct field names mirror the extract.jsonl / structure.jsonl JSON
+# schema verbatim (camelCase); renaming would break the serialization contract.
+"src/leanatlas/models.py" = ["N815"]
+"src/leanatlas/parse_source.py" = ["N815"]
+# Tests: NAME_* uppercase module-identifier constants (N806) and long
+# single-line Cypher query/assert lines (E501) are established test style;
+# rewrapping them adds churn without readability gain.
+"tests/*" = ["N806", "E501"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v"

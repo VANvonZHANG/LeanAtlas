@@ -120,9 +120,9 @@ def load_declarations(tx, records: list[ModuleRecord]) -> None:
             "UNWIND $batch AS d MERGE (n:Declaration {name: d.name}) SET n += d",
             batch=decl_rows[i : i + BATCH],
         )
-    # Kind labels (the label comes from a fixed mapping, so %-interpolation is safe)
+    # Kind labels (the label comes from a fixed mapping, so interpolation is safe)
     for kind, label in KIND_TO_LABEL.items():
-        tx.run("MATCH (n:Declaration {kind:$k}) SET n:%s" % label, k=kind)
+        tx.run(f"MATCH (n:Declaration {{kind:$k}}) SET n:{label}", k=kind)
     for i in range(0, len(ns_rel), BATCH):
         tx.run(
             "UNWIND $batch AS r MATCH (d:Declaration {name:r.name}), "
@@ -389,7 +389,8 @@ def load_fields_constructors(tx, records: list, type_names: set[str],
         tx.run(
             "UNWIND $batch AS r MERGE (n:Declaration {name: r.name}) "
             "ON CREATE SET n.isExternal = true "
-            "SET n:Constructor, n.kind = 'constructor', n.isExternal = false, n.typeSignature = r.sig",
+            "SET n:Constructor, n.kind = 'constructor', n.isExternal = false, "
+            "n.typeSignature = r.sig",
             batch=ctor_rows[i : i + BATCH],
         )
     # ③ HAS_FIELD edges (type nodes were created by load_declarations; field

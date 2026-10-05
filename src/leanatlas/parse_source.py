@@ -1,7 +1,6 @@
 """Parse mathlib .lean files into structure.jsonl records."""
 import re
 from pathlib import Path
-from typing import Optional
 
 import msgspec
 
@@ -40,8 +39,8 @@ ATTR_RE = re.compile(r"@\[([^\]]*)\]")
 class ModuleMeta(msgspec.Struct):
     module: str
     path: str
-    docstring: Optional[str] = None
-    title: Optional[str] = None
+    docstring: str | None = None
+    title: str | None = None
     tags: list[str] = msgspec.field(default_factory=list)
     authors: list[str] = msgspec.field(default_factory=list)
     isDeprecated: bool = False
@@ -59,7 +58,7 @@ def _parse_tags(doc: str) -> list[str]:
     return []
 
 
-def _parse_title(doc: str) -> Optional[str]:
+def _parse_title(doc: str) -> str | None:
     for ln in doc.splitlines():
         s = ln.strip()
         if s.startswith("# "):
@@ -155,7 +154,7 @@ def parse_declarations(
             decl_starts.append((i, m))
 
     ns_stack: list[str] = []
-    pending_doc: Optional[str] = None
+    pending_doc: str | None = None
     pending_attrs: list[str] = []
     results: list[Declaration] = []
     di = 0
@@ -236,7 +235,7 @@ def parse_declarations(
     return results
 
 
-def _module_name(path: str, root: Optional[str] = None) -> str:
+def _module_name(path: str, root: str | None = None) -> str:
     p = Path(path)
     if root:
         try:
@@ -247,7 +246,7 @@ def _module_name(path: str, root: Optional[str] = None) -> str:
     return p.stem
 
 
-def parse_file(path: str, root: Optional[str] = None) -> tuple[ModuleRecord, list[str]]:
+def parse_file(path: str, root: str | None = None) -> tuple[ModuleRecord, list[str]]:
     text = Path(path).read_text(encoding="utf-8")
     warnings: list[str] = []
     meta = parse_module_meta(text, path)
@@ -275,7 +274,7 @@ def parse_file(path: str, root: Optional[str] = None) -> tuple[ModuleRecord, lis
 
 
 def write_structure_jsonl(
-    paths: list[str], out_path: str, root: Optional[str] = None
+    paths: list[str], out_path: str, root: str | None = None
 ) -> int:
     n = 0
     with open(out_path, "w", encoding="utf-8") as f:
