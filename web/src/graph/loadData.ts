@@ -6,25 +6,31 @@ export interface NodeRow {
   declCount: number; closureSize: number; isDeprecated: boolean;
   title: string | null; docstring: string | null;
 }
+export interface StructureEdges {
+  extends: [number, number][];
+  instantiates: [number, number][];
+  fields: [number, number][];
+}
 export interface DataDoc {
   schemaVersion: number;
   meta: { version: string; generatedAt: string; scope: string; stats: Record<string, number> };
   topics: TopicRow[];
   nodes: NodeRow[];
   edges: [number, number][];
+  structureEdges: StructureEdges;
 }
 
 export async function loadData(url = "data.json"): Promise<DataDoc> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`loadData: fetch ${url} -> ${res.status}`);
   const doc = (await res.json()) as DataDoc;
-  if (doc.schemaVersion !== 1)
+  if (doc.schemaVersion !== 2)
     throw new Error(`loadData: unsupported schemaVersion ${doc.schemaVersion}`);
   return doc;
 }
 
 export function buildGraph(doc: DataDoc): Graph {
-  const g = new Graph({ type: "directed", multi: false });
+  const g = new Graph({ type: "directed", multi: true });
   for (const n of doc.nodes) {
     g.addNode(n.name, {
       x: n.x,
@@ -41,7 +47,14 @@ export function buildGraph(doc: DataDoc): Graph {
   }
   for (const [a, b] of doc.edges) {
     const s = doc.nodes[a]!.name, t = doc.nodes[b]!.name;
-    if (!g.hasEdge(s, t)) g.addEdge(s, t, { color: "#26304a", size: 0.5 });
+    if (!g.hasEdge(s, t)) g.addEdge(s, t, { rel: "import", color: "#26304a", size: 0.5 });
+  }
+  for (const rel of ["extends", "instantiates", "fields"] as const) {
+    for (const [a, b] of doc.structureEdges[rel]) {
+      const s = doc.nodes[a]!.name, t = doc.nodes[b]!.name;
+      // parallel by design: same pair may carry up to 3 relation types + import
+      g.addEdge(s, t, { rel, size: 0.7 });
+    }
   }
   return g;
 }
