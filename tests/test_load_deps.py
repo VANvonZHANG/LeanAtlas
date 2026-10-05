@@ -8,7 +8,7 @@ from leanatlas.models import CtorItem, Declaration, Dep, DeprecatedBy, ExtractRe
 from leanatlas.neo4j_schema import apply_schema, drop_kg, drop_kg_batched
 
 pytestmark = pytest.mark.skipif(
-    not os.environ.get("MATHLIB_KG_NEO4J_PASSWORD"), reason="requires Neo4j credentials"
+    not os.environ.get("LEANATLAS_NEO4J_PASSWORD"), reason="requires Neo4j credentials"
 )
 
 

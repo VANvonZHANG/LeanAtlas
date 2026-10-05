@@ -1,5 +1,5 @@
 """Full-dataset acceptance: run the layout pipeline on the real structure.jsonl
-(gated by MATHLIB_KG_RUN_ACCEPTANCE=1)."""
+(gated by LEANATLAS_RUN_ACCEPTANCE=1)."""
 import os
 import random
 from pathlib import Path
@@ -16,8 +16,8 @@ from leanatlas.layout import (
 )
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("MATHLIB_KG_RUN_ACCEPTANCE") != "1",
-    reason="set MATHLIB_KG_RUN_ACCEPTANCE=1 (requires structure.jsonl in repo root)",
+    os.environ.get("LEANATLAS_RUN_ACCEPTANCE") != "1",
+    reason="set LEANATLAS_RUN_ACCEPTANCE=1 (requires structure.jsonl in repo root)",
 )
 
 

@@ -2,8 +2,8 @@
 4 relationship edge types.
 
 Skipped by default (needs Lean build + Neo4j). Enable:
-  export MATHLIB_KG_NEO4J_USER=neo4j MATHLIB_KG_NEO4J_PASSWORD=... MATHLIB_KG_NEO4J_DB=neo4j
-  export MATHLIB_KG_RUN_V2_ACCEPTANCE=1
+  export LEANATLAS_NEO4J_USER=neo4j LEANATLAS_NEO4J_PASSWORD=... LEANATLAS_NEO4J_DB=neo4j
+  export LEANATLAS_RUN_V2_ACCEPTANCE=1
   pytest tests/test_v2_acceptance.py -v -s
 """
 import os
@@ -18,9 +18,9 @@ from leanatlas.models import module_to_json
 from leanatlas.parse_source import parse_file
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("MATHLIB_KG_RUN_V2_ACCEPTANCE") != "1"
-    or not os.environ.get("MATHLIB_KG_NEO4J_PASSWORD"),
-    reason="requires MATHLIB_KG_RUN_V2_ACCEPTANCE=1 and Neo4j credentials",
+    os.environ.get("LEANATLAS_RUN_V2_ACCEPTANCE") != "1"
+    or not os.environ.get("LEANATLAS_NEO4J_PASSWORD"),
+    reason="requires LEANATLAS_RUN_V2_ACCEPTANCE=1 and Neo4j credentials",
 )
 
 REPO = Path(__file__).resolve().parents[1]

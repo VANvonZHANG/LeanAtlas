@@ -1,7 +1,7 @@
 """Golden test for the Extract.lean lake exe (skipped by default: LEAN
 extraction is slow).
 
-Enable: export MATHLIB_KG_SKIP_LEAN=0
+Enable: export LEANATLAS_SKIP_LEAN=0
 """
 import json
 import os
@@ -13,8 +13,8 @@ import pytest
 EXTRACT_DIR = Path(__file__).resolve().parents[1] / "extract"
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("MATHLIB_KG_SKIP_LEAN", "1") == "1",
-    reason="LEAN extraction is slow, skipped by default; set MATHLIB_KG_SKIP_LEAN=0 to enable",
+    os.environ.get("LEANATLAS_SKIP_LEAN", "1") == "1",
+    reason="LEAN extraction is slow, skipped by default; set LEANATLAS_SKIP_LEAN=0 to enable",
 )
 
 

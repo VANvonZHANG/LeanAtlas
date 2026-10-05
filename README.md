@@ -33,16 +33,16 @@ cd extract && lake build extract
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
-| `MATHLIB_KG_NEO4J_URI` | `bolt://localhost:7687` | |
-| `MATHLIB_KG_NEO4J_USER` | （空） | |
-| `MATHLIB_KG_NEO4J_PASSWORD` | （空） | |
-| `MATHLIB_KG_NEO4J_DB` | `neo4j` | 社区版用默认库；KG 数据靠标签与既有数据隔离 |
-| `MATHLIB_KG_MATHLIB_PATH` | `/path/to/mathlib4` | |
+| `LEANATLAS_NEO4J_URI` | `bolt://localhost:7687` | |
+| `LEANATLAS_NEO4J_USER` | （空） | |
+| `LEANATLAS_NEO4J_PASSWORD` | （空） | |
+| `LEANATLAS_NEO4J_DB` | `neo4j` | 社区版用默认库；KG 数据靠标签与既有数据隔离 |
+| `LEANATLAS_MATHLIB_PATH` | （无；`layout` 需与 `--mathlib-path` 二选一） | |
 
 ## 用法
 
 ```bash
-export MATHLIB_KG_NEO4J_USER=neo4j MATHLIB_KG_NEO4J_PASSWORD=...
+export LEANATLAS_NEO4J_USER=neo4j LEANATLAS_NEO4J_PASSWORD=...
 
 # 解析全部 Mathlib/ 源码
 leanatlas parse --mathlib-path /path/to/mathlib4 --out structure.jsonl
@@ -67,13 +67,13 @@ leanatlas drop
 pytest
 
 # 含 Neo4j 的集成测试
-MATHLIB_KG_NEO4J_PASSWORD=... pytest
+LEANATLAS_NEO4J_PASSWORD=... pytest
 
 # Lean 抽取 golden 测试
-MATHLIB_KG_SKIP_LEAN=0 pytest tests/test_extract.py
+LEANATLAS_SKIP_LEAN=0 pytest tests/test_extract.py
 
 # 端到端验收（Init.Data.Nat.Basic）
-MATHLIB_KG_RUN_ACCEPTANCE=1 MATHLIB_KG_NEO4J_PASSWORD=... pytest tests/test_acceptance.py -v -s
+LEANATLAS_RUN_ACCEPTANCE=1 LEANATLAS_NEO4J_PASSWORD=... pytest tests/test_acceptance.py -v -s
 ```
 
 ## Web explorer
@@ -84,7 +84,7 @@ schema of that file is documented in `web/SCHEMA.md`.
 
 ```bash
 # generate the data (writes web/public/data.json)
-leanatlas layout --structure structure.jsonl --topics web/topics.toml --out web/public/data.json
+leanatlas layout --structure structure.jsonl --topics web/topics.toml --out web/public/data.json --mathlib-path /path/to/mathlib4
 
 cd web
 pnpm install

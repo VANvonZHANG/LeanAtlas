@@ -392,11 +392,12 @@ class TestRunAndRead:
         err = capsys.readouterr().err
         assert "Experiment" in err
 
-    def test_cli_layout_reports_skipped_bad_lines(self, tmp_path):
+    def test_cli_layout_reports_skipped_bad_lines(self, tmp_path, monkeypatch):
         import msgspec as _m
         from typer.testing import CliRunner
 
         from leanatlas.cli import app
+        monkeypatch.setenv("LEANATLAS_MATHLIB_PATH", str(tmp_path))
 
         p = tmp_path / "s.jsonl"
         p.write_bytes(_m.json.encode(rec("Mathlib.A")) + b"\n{broken\n")  # 1 good + 1 bad
@@ -420,6 +421,7 @@ class TestRunAndRead:
         from typer.testing import CliRunner
 
         from leanatlas.cli import app
+        monkeypatch.setenv("LEANATLAS_MATHLIB_PATH", str(tmp_path))
         p = tmp_path / "s.jsonl"
         import msgspec as _m
         p.write_bytes(_m.json.encode(rec("Mathlib.A")).replace(b"}", b"}\n"))

@@ -130,6 +130,8 @@ def layout(
     scope: str = typer.Option("mathlib", "--scope", help="P0 supports mathlib only"),
     extract: Path = typer.Option(Path("extract.jsonl"), "--extract",
                                  help="extract.jsonl (v3, module field) for structure edges"),
+    mathlib_path_arg: Path = typer.Option(None, "--mathlib-path",
+                                          help="local mathlib checkout (with built .lake)"),
 ) -> None:
     """Compute the module-level layout and export data.json (visualization layer P0)."""
     if scope != "mathlib":
@@ -137,7 +139,15 @@ def layout(
         raise typer.Exit(code=2)
     records, bad = layout_mod.read_structure(structure)
     topic_list = layout_mod.load_topics(topics)
-    mathlib_path = Path(os.environ.get("MATHLIB_KG_MATHLIB_PATH", "/path/to/mathlib4"))
+    env_path = os.environ.get("LEANATLAS_MATHLIB_PATH")
+    provided = mathlib_path_arg or env_path
+    if not provided or not Path(provided).exists():
+        typer.echo(
+            "error: mathlib checkout not found. Pass --mathlib-path or set LEANATLAS_MATHLIB_PATH",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    mathlib_path = Path(provided)
     version = layout_mod.describe_mathlib(mathlib_path)
     doc = layout_mod.run_layout(records, topic_list, version=version,
                                 skipped_bad_lines=bad, extract_path=extract)
