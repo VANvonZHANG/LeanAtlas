@@ -19,6 +19,7 @@ from pathlib import Path
 import msgspec
 
 from .models import ModuleRecord
+from .structure_edges import REL_TYPES, build_module_map, iter_extract_records, resolve_structure_edges
 
 __all__ = [
     "Topic", "DEFAULT_TOPICS", "load_topics", "assign_topic", "assign_topics",
@@ -300,7 +301,8 @@ def build_document(mod: Modules, topo: list[int], topics: list[Topic],
                    node_topics: list[Topic], xs: list[float], ys: list[float],
                    rs: list[float], reduced: list[list[int]], closures: list[int], *,
                    version: str, generated_at: str, scope: str = "mathlib",
-                   skipped_bad_lines: int = 0) -> dict:
+                   skipped_bad_lines: int = 0,
+                   structure_edges: dict[str, list[tuple[str, str]]] | None = None) -> dict:
     n = len(mod.names)
     pos_of = [0] * n
     for p, v in enumerate(topo):
@@ -325,8 +327,12 @@ def build_document(mod: Modules, topo: list[int], topics: list[Topic],
         })
     edges = [[pos_of[a], pos_of[b]]
              for b in range(n) for a in reduced[b]]      # [dep, importer] in topo-order coordinates
+    se_in = structure_edges or {t: [] for t in REL_TYPES}
+    # pos_of is index-keyed; structure pairs are module names → look up via mod.index
+    structure = {t: sorted([pos_of[mod.index[a]], pos_of[mod.index[b]]] for a, b in se_in[t])
+                 for t in REL_TYPES}
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "meta": {
             "version": version,
             "generatedAt": generated_at,
@@ -338,6 +344,9 @@ def build_document(mod: Modules, topo: list[int], topics: list[Topic],
                 "skippedExternalImports": mod.skipped_external,
                 "skippedBadLines": skipped_bad_lines,
                 "unmatchedTopicModules": unmatched,
+                "extendsEdges": len(structure["extends"]),
+                "instantiatesEdges": len(structure["instantiates"]),
+                "fieldsEdges": len(structure["fields"]),
             },
         },
         "topics": [
@@ -346,6 +355,7 @@ def build_document(mod: Modules, topo: list[int], topics: list[Topic],
         ],
         "nodes": nodes,
         "edges": edges,
+        "structureEdges": structure,
     }
 
 
@@ -391,10 +401,13 @@ def describe_mathlib(path: Path) -> str:
         return "unknown"
 
 
-def run_layout(records: list[ModuleRecord], topics: list[Topic], *,
-               version: str, now: str | None = None, skipped_bad_lines: int = 0) -> dict:
+def run_layout(records: list[ModuleRecord], topics: list[Topic], *, version: str,
+               now: str | None = None, skipped_bad_lines: int = 0,
+               extract_path: Path | None = None,
+               structure_edges: dict[str, list[tuple[str, str]]] | None = None) -> dict:
     """Orchestrate all pure functions; report unmatched topics to stderr.
-    Determinism: identical inputs → byte-identical output."""
+    Determinism: identical inputs → byte-identical output (inject ``now`` for
+    reproducible timestamps; structure_edges overrides extract_path when both given)."""
     mod = filter_and_build(records)
     topo = topological_order(mod)
     closures = compute_closures(mod, topo)
@@ -402,6 +415,18 @@ def run_layout(records: list[ModuleRecord], topics: list[Topic], *,
     xs, ys = assign_positions(mod, topo, closures, node_topics)
     rs = radii(pagerank_scores(mod))
     reduced = transitively_reduce(mod, closures)
+
+    structure_pairs = structure_edges
+    if structure_pairs is None and extract_path is not None:
+        if not Path(extract_path).exists():
+            print(f"layout: --extract {extract_path} not found; emitting empty structureEdges",
+                  file=sys.stderr)
+            structure_pairs = {t: [] for t in REL_TYPES}
+        else:
+            # two streaming passes: the 1.6 GB extract cannot be held in memory
+            m2 = build_module_map(iter_extract_records(Path(extract_path)))
+            structure_pairs = resolve_structure_edges(
+                iter_extract_records(Path(extract_path)), m2, set(mod.names))
 
     # Unmatched-topic report: count gray-band modules per second-level prefix
     # (to guide manual topics.toml additions)
@@ -417,4 +442,5 @@ def run_layout(records: list[ModuleRecord], topics: list[Topic], *,
     return build_document(
         mod, topo, topics, node_topics, xs, ys, rs, reduced, closures,
         version=version, generated_at=generated_at, skipped_bad_lines=skipped_bad_lines,
+        structure_edges=structure_pairs,
     )

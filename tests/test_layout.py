@@ -305,7 +305,7 @@ class TestDocument:
 
     def test_contract_fields(self):
         mods, doc = self._full()
-        assert doc["schemaVersion"] == 1
+        assert doc["schemaVersion"] == 2
         for key in ("version", "generatedAt", "scope", "stats"):
             assert key in doc["meta"]
         for key in ("modules", "edgesDirect", "edgesReduced", "skippedExternalImports",
@@ -410,6 +410,7 @@ class TestRunAndRead:
         runner = CliRunner()
         result = runner.invoke(app, [
             "layout", "--structure", str(p), "--out", str(out), "--topics", str(topics_f),
+            "--extract", str(tmp_path / "no-extract.jsonl"),
         ])
         assert result.exit_code == 0, result.output
         data = _json.loads(out.read_text(encoding="utf-8"))
@@ -430,6 +431,7 @@ class TestRunAndRead:
         runner = CliRunner()
         result = runner.invoke(app, [
             "layout", "--structure", str(p), "--out", str(out), "--topics", str(topics_f),
+            "--extract", str(tmp_path / "no-extract.jsonl"),
         ])
         assert result.exit_code == 0, result.output
         assert out.exists()
@@ -441,3 +443,35 @@ class TestRunAndRead:
         runner = CliRunner()
         result = runner.invoke(app, ["layout", "--scope", "all"])
         assert result.exit_code == 2
+
+
+def test_build_document_structure_edges_and_stats(tmp_path):
+    """v2 golden: structureEdges mapped to topo indices, sorted, in stats."""
+    # minimal 3-module chain: B imports A, C imports B (rec() fixture as elsewhere)
+    from mathlib_kg import layout as layout_mod
+
+    records = [rec("Mathlib.A"), rec("Mathlib.B", ("Mathlib.A",)),
+               rec("Mathlib.C", ("Mathlib.B",))]
+    doc = layout_mod.run_layout(records, [], version="t", now="2026-01-01T00:00:00+00:00",
+                                structure_edges={"extends": [("Mathlib.C", "Mathlib.B")],
+                                                 "instantiates": [("Mathlib.C", "Mathlib.A")],
+                                                 "fields": []})
+    idx = {n["name"]: i for i, n in enumerate(doc["nodes"])}
+    assert doc["schemaVersion"] == 2
+    assert doc["structureEdges"]["extends"] == [[idx["Mathlib.C"], idx["Mathlib.B"]]]
+    assert doc["structureEdges"]["instantiates"] == [[idx["Mathlib.C"], idx["Mathlib.A"]]]
+    assert doc["meta"]["stats"]["extendsEdges"] == 1
+    assert doc["meta"]["stats"]["fieldsEdges"] == 0
+
+
+def test_run_layout_missing_extract_warns_and_empty(tmp_path, capsys):
+    """--extract file absent → stderr warning + empty structureEdges, not a crash."""
+    from mathlib_kg import layout as layout_mod
+
+    records = [rec("Mathlib.A"), rec("Mathlib.B", ("Mathlib.A",))]
+    doc = layout_mod.run_layout(records, list(DEFAULT_TOPICS), version="t", now="t",
+                                extract_path=tmp_path / "no-such-extract.jsonl")
+    err = capsys.readouterr().err
+    assert "--extract" in err and "not found" in err
+    assert doc["structureEdges"] == {"extends": [], "instantiates": [], "fields": []}
+    assert doc["meta"]["stats"]["instantiatesEdges"] == 0

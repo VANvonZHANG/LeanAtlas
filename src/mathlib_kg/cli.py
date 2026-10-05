@@ -128,6 +128,8 @@ def layout(
     out: Path = typer.Option(Path("web/public/data.json"), "--out", help="output data.json path"),
     topics: Path = typer.Option(Path("web/topics.toml"), "--topics", help="topic table path"),
     scope: str = typer.Option("mathlib", "--scope", help="P0 supports mathlib only"),
+    extract: Path = typer.Option(Path("extract.jsonl"), "--extract",
+                                 help="extract.jsonl (v3, module field) for structure edges"),
 ) -> None:
     """Compute the module-level layout and export data.json (visualization layer P0)."""
     if scope != "mathlib":
@@ -138,12 +140,14 @@ def layout(
     mathlib_path = Path(os.environ.get("MATHLIB_KG_MATHLIB_PATH", "/path/to/mathlib4"))
     version = layout_mod.describe_mathlib(mathlib_path)
     doc = layout_mod.run_layout(records, topic_list, version=version,
-                                skipped_bad_lines=bad)
+                                skipped_bad_lines=bad, extract_path=extract)
     layout_mod.write_document(doc, out)
     stats = doc["meta"]["stats"]
     typer.echo(
         f"layout: modules={stats['modules']} edgesDirect={stats['edgesDirect']} "
-        f"edgesReduced={stats['edgesReduced']} badLines={bad} → {out}"
+        f"edgesReduced={stats['edgesReduced']} "
+        f"structure(E/I/F)={stats['extendsEdges']}/{stats['instantiatesEdges']}/{stats['fieldsEdges']} "
+        f"badLines={bad} → {out}"
     )
 
 
