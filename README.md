@@ -1,111 +1,102 @@
-# leanatlas
+# LeanAtlas
 
-把 Lean mathlib 解析 + 抽取成 Neo4j 知识图谱（v1：结构骨架 + 精确声明级依赖 DAG）。
+An interactive atlas of [Lean 4](https://lean-lang.org) mathematics: a knowledge-graph
+pipeline that turns a compiled Lean library (tested against
+[Mathlib](https://github.com/leanprover-community/mathlib4)) into a Neo4j graph
+of declarations and dependencies, plus a fast web explorer that maps the whole
+library at a glance — module dependency structure, class hierarchies
+(`extends`), typeclass wiring (`instances`), and structure fields.
 
-## 它做什么
+![The LeanAtlas explorer](assets/atlas-hero.png)
 
-三段解耦管线，中间产物为 JSONL：
+## What you get
+
+- **A knowledge graph of 625k+ declarations and 11.6M kernel-level dependency
+  edges** (plus `EXTENDS` / `INSTANTIATES` / `HAS_FIELD` / `HAS_CONSTRUCTOR`
+  structural relations), loaded into Neo4j.
+- **A layout engine** (`leanatlas layout`) that computes a deterministic
+  module map: x = transitive-closure size (foundations left, apex right),
+  y = topic bands, radius = PageRank — exported as a small `data.json`.
+- **A zero-install explorer** (Vite + React + sigma.js): search & fly-to,
+  transitive-closure highlighting, structure-edge overlay with per-relation
+  color/curvature controls, URL deep links, PNG export.
+
+The explorer runs entirely client-side: with the prebuilt `data.json` you can
+browse the atlas of Mathlib without installing Lean or Neo4j at all.
+
+## How it works
 
 ```
-*.lean ──[parse_source]──► structure.jsonl ─┐
-                                            ├──[load_neo4j]──► Neo4j
-.olean(env) ──[Extract.lean lake exe]──► extract.jsonl ─┘
+ .lean sources          compiled env              Neo4j KG                browser
+┌──────────────┐   ┌───────────────────┐   ┌─────────────────┐   ┌────────────────┐
+│ leanatlas    │   │ lake exe extract  │   │ leanatlas load  │   │ leanatlas      │
+│ parse  ──────┼──▶│ (kernel truth:    │──▶│ (declarations,  │──▶│ layout ───────▶│ data.json
+│ (regex)      │   │  deps, extends,   │   │  modules, ... ) │   │ (deterministic)│
+└──────────────┘   │  instances, ...)  │   └─────────────────┘   └────────────────┘
+                   └───────────────────┘
 ```
 
-- **节点**：`Declaration`（含 `typeSignature` 规范类型 + `sourceText` 源码体）、`Module`、`Namespace`
-- **关系**：`DEPENDS_ON`（声明级精确依赖 DAG）、`IMPORTS`（模块间）、`IN_NAMESPACE`、`SUBNAMESPACE_OF`、`DEFINED_IN`
-- 外部常量（`Std`/`Batteries`/Lean 内置如 `Nat`/`Eq`）建 `isExternal:true` 占位节点，保证图完整可遍历
+Module-level structure edges are aggregated with the compiler's own
+defining-module mapping (`env.getModuleIdxFor?`), which catches
+auto-generated and private declarations that source-regex parsing cannot see.
 
-## 安装
+## Quickstart
+
+Requirements: Python 3.12+ ([uv](https://docs.astral.sh/uv/) recommended),
+Node 18+ with pnpm, a [Neo4j 5.x](https://neo4j.com/download/) instance
+(Community Edition is fine), and a local mathlib checkout with built
+`.lake` (`lake exe cache get`).
 
 ```bash
-cd leanatlas
-pip install -e ".[dev]"
-```
-
-Lean 抽取工具（首次会复用已编译的 mathlib `.olean`，约数分钟设置工作区）：
-
-```bash
-cd extract && lake build extract
-```
-
-## 配置（环境变量）
-
-| 变量 | 默认 | 说明 |
-|------|------|------|
-| `LEANATLAS_NEO4J_URI` | `bolt://localhost:7687` | |
-| `LEANATLAS_NEO4J_USER` | （空） | |
-| `LEANATLAS_NEO4J_PASSWORD` | （空） | |
-| `LEANATLAS_NEO4J_DB` | `neo4j` | 社区版用默认库；KG 数据靠标签与既有数据隔离 |
-| `LEANATLAS_MATHLIB_PATH` | （无；`layout` 需与 `--mathlib-path` 二选一） | |
-
-## 用法
-
-```bash
+git clone https://github.com/<you>/leanatlas && cd leanatlas
+uv pip install -e .
+export LEANATLAS_NEO4J_URI=bolt://localhost:7687
 export LEANATLAS_NEO4J_USER=neo4j LEANATLAS_NEO4J_PASSWORD=...
+export LEANATLAS_MATHLIB_PATH=/path/to/mathlib4
 
-# 解析全部 Mathlib/ 源码
-leanatlas parse --mathlib-path /path/to/mathlib4 --out structure.jsonl
+# 1) parse module structure from sources
+leanatlas parse --mathlib-path "$LEANATLAS_MATHLIB_PATH" --out structure.jsonl
 
-# 抽取全部依赖（最贵一步；lake exe 抽取整个 mathlib 环境）
-( cd extract && lake exe extract Mathlib > ../extract.jsonl )
+# 2) extract kernel-truth records (deps, relations, defining module)
+cd extract && lake exe extract Mathlib > ../extract.jsonl && cd ..
 
-# 装载（先建 schema，按 模块→命名空间→声明→import→依赖 顺序）
-leanatlas load --structure structure.jsonl --extract extract.jsonl
+# 3) load the knowledge graph into Neo4j
+leanatlas drop && leanatlas load --structure structure.jsonl --extract extract.jsonl
 
-# 查询
-leanatlas query "MATCH (:Declaration {name:'Nat'})<-[:DEPENDS_ON*1..6]-(d) RETURN count(DISTINCT d)"
+# 4) compute the deterministic module map for the explorer
+leanatlas layout --structure structure.jsonl --topics web/topics.toml \
+  --out web/public/data.json
 
-# 清空重跑
-leanatlas drop
+# 5) explore
+cd web && pnpm install && pnpm dev
 ```
 
-## 验收 / 测试
+The full pipeline over Mathlib takes about an hour (extraction ~20 min,
+Neo4j load ~30 min); `leanatlas layout` alone is ~12 s.
 
-```bash
-# 单元测试（纯 Python，无需 Neo4j/Lean）
-pytest
+## Exploring
 
-# 含 Neo4j 的集成测试
-LEANATLAS_NEO4J_PASSWORD=... pytest
+- **Search** any module (Enter pins it and flies the camera there).
+- **Pin** a module to light up its full transitive import closure.
+- **Structure edges** (toggle per relation in the edge panel; defaults on):
+  amber arcs = `extends` (class lineages), teal = `instances` (typeclass
+  wiring), violet = field projections. Color and curvature are adjustable
+  live; the state round-trips through the URL hash for shareable deep links.
+- **Export** the current view as PNG (topic labels and edges included).
 
-# Lean 抽取 golden 测试
-LEANATLAS_SKIP_LEAN=0 pytest tests/test_extract.py
+## Related work
 
-# 端到端验收（Init.Data.Nat.Basic）
-LEANATLAS_RUN_ACCEPTANCE=1 LEANATLAS_NEO4J_PASSWORD=... pytest tests/test_acceptance.py -v -s
-```
+- [LeanDojo](https://github.com/LeanDojo/LeanDojo) — theorem-proving trace
+  data for ML; LeanAtlas focuses on structure & dependency cartography for
+  humans.
+- [MathlibExplorer](https://github.com/Crispher/MathlibExplorer) — a 2024
+  static visualization; LeanAtlas is interactive, kernel-accurate, and
+  current (v4.30 shape).
+- [import-graph](https://github.com/leanprover-community/import-graph) —
+  module-level dot graphs; LeanAtlas adds declaration-level KG, structural
+  relations, and the web explorer.
 
-## Web explorer
+## License
 
-`web/` contains a zero-backend SPA (Vite + React + sigma.js) that renders the
-module panorama from a static `data.json` produced by the layout CLI. The
-schema of that file is documented in `web/SCHEMA.md`.
-
-```bash
-# generate the data (writes web/public/data.json)
-leanatlas layout --structure structure.jsonl --topics web/topics.toml --out web/public/data.json --mathlib-path /path/to/mathlib4
-
-cd web
-pnpm install
-pnpm dev                      # dev server
-pnpm build && pnpm preview    # production build + local preview
-pnpm vitest run               # unit tests (pure-logic layer)
-```
-
-`web/offline/index.html` is a dependency-free POC of the same panorama: serve
-`web/` statically (e.g. `python -m http.server -d web 8899`) and open
-`/offline/`; it loads the vendored sigma/graphology bundles directly and needs
-no build step.
-
-## v1 范围与后续
-
-v1（本包）= 地基：节点 + 命名空间树 + import 边 + 精确依赖 DAG。
-
-后续阶段（各自独立 spec）：v2 结构关系（`EXTENDS`/`INSTANTIATES`/`DEPRECATED_BY`…）、v3 语义检索（向量嵌入）、v4 版本演化（git 历史）、v5 查询/Agent 层（MCP）。
-
-## 已知限制（v1）
-
-- regex 解析覆盖 ~90% 声明头；无法识别的记 warning 不中断。
-- `private` 声明（`_private....` 前缀）与匿名辅助常量：匿名项 delab 失败时兜底为原始 Expr 表示，不中断。
-- **抽取范围 = 模块的传递 import 闭包**：抽取单个模块（如 `Mathlib.Algebra.Quandle`）只得到该模块及其依赖闭包，不含未被它 import 的模块（如 NumberTheory）。要装载完整 mathlib 图，必须抽取聚合模块 `Mathlib`（它在 `Mathlib.lean` 中 import 全部子模块）。
+MIT (see [LICENSE](LICENSE)). Neo4j itself is licensed separately by its
+publishers (Community Edition: GPLv3) — you run your own instance.
