@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildGraph, loadData } from "./loadData";
@@ -33,7 +33,9 @@ describe("loadData", () => {
     const got = await loadData();
     expect(got.nodes).toHaveLength(3);
   });
-  it("loads real v2 public/data.json and builds the graph from it", async () => {
+  // guard: real data.json is gitignored (built by `leanatlas layout`); skip when absent
+  const maybeRealData = existsSync(resolve(__dirname, "../../public/data.json")) ? it : it.skip;
+  maybeRealData("loads real v2 public/data.json and builds the graph from it", async () => {
     const raw = readFileSync(resolve(__dirname, "../../public/data.json"), "utf8");
     globalThis.fetch = (async () => new Response(raw)) as typeof fetch;
     const got = await loadData();
