@@ -11,6 +11,9 @@
     - instancePriority : Number | null          priority of that instance
     - deprecatedBy     : {replacement, message, since} | null  DEPRECATED_BY
     - additiveVersion  : String | null          HAS_ADDITIVE_VERSION (to_additive target)
+
+  v3: each record additionally carries `module` (defining module name, compiler
+    truth; null for main-module constants and the minimal fallback records).
 -/
 import Lean
 import Lean.Data.Json
@@ -156,8 +159,20 @@ def main (args : List String) : IO UInt32 := do
           else Json.arr #[]
         | _ => Json.arr #[]
 
+      -- v3: defining module of the constant — compiler truth via the module
+      -- index. This covers auto-generated instances and _private declarations
+      -- that regex source parsing cannot see (the P1.5 join-basis fix).
+      let moduleJson : Json :=
+        match env.getModuleIdxFor? name with
+        | some idx =>
+          match env.header.moduleNames[idx]? with
+          | some m => Json.str m.toString
+          | none => Json.null
+        | none => Json.null
+
       let obj := Json.mkObj [
         ("name", Json.str name.toString),
+        ("module", moduleJson),
         ("typeSignature", Json.str typeSig),
         ("deps", Json.arr entries),
         ("extends", extendsArr),
