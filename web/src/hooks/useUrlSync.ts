@@ -2,9 +2,14 @@ import { useEffect } from "react";
 import type Sigma from "sigma";
 import { parseUrl, serializeUrl, type UrlState } from "../graph/urlState";
 import { pinNode } from "../graph/pin";
-import { edgeDensityStore, selectionStore, topicFilterStore } from "../state/stores";
+import {
+  edgeDensityStore,
+  selectionStore,
+  structureTogglesStore,
+  topicFilterStore,
+} from "../state/stores";
 
-// Interactions -> #node&topic&edges&z&x&y, written via history.replaceState (no
+// Interactions -> #node&topic&edges&se&z&x&y, written via history.replaceState (no
 // back-button spam) after a 200ms debounce. On mount the hash is parsed once
 // and pushed back into the stores/camera (deep-link restore); every subsequent
 // store/camera change rewrites the hash, so a copied URL always round-trips.
@@ -27,6 +32,13 @@ export function useUrlSync(sigma: Sigma, initial: boolean) {
     if (st.node && sigma.getGraph().hasNode(st.node)) pinNode(sigma.getGraph(), st.node);
     if (st.topic) topicFilterStore.set(st.topic);
     if (st.edges !== undefined) edgeDensityStore.set(st.edges / 100);
+    // se: structure-relation visibility bitmask (1=extends, 2=instantiates,
+    // 4=fields). Parsed values are already clamped to 0..7 by parseUrl.
+    if (st.se !== undefined) {
+      structureTogglesStore.set({
+        extends: (st.se & 1) !== 0, instantiates: (st.se & 2) !== 0, fields: (st.se & 4) !== 0,
+      });
+    }
     // z (ratio) is the marker for camera presence: x/y/z restore together only
     // when z parsed, so stray x/y without z does not teleport the camera.
     if (st.z !== undefined)
@@ -44,12 +56,14 @@ export function useUrlSync(sigma: Sigma, initial: boolean) {
             node: sel?.node,
             topic: topicFilterStore.get() ?? undefined,
             edges: Math.round(edgeDensityStore.get() * 100),
+            se: (() => { const t = structureTogglesStore.get();
+              return (t.extends ? 1 : 0) | (t.instantiates ? 2 : 0) | (t.fields ? 4 : 0); })(),
             z: cam.ratio, x: cam.x, y: cam.y,
           }),
         );
       }, DEBOUNCE_MS);
     };
-    const unsubs = [selectionStore, topicFilterStore, edgeDensityStore].map((s) =>
+    const unsubs = [selectionStore, topicFilterStore, edgeDensityStore, structureTogglesStore].map((s) =>
       s.subscribe(push),
     );
     sigma.getCamera().on("updated", push);

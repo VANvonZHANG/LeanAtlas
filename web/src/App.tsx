@@ -1,4 +1,4 @@
-import EdgeSlider from "./components/EdgeSlider";
+import EdgePanel from "./components/EdgePanel";
 import ExportButton from "./components/ExportButton";
 import GraphView from "./components/GraphView";
 import InfoPanel from "./components/InfoPanel";
@@ -14,7 +14,7 @@ export default function App() {
         <SearchBox doc={data.doc} />
         <InfoPanel />
       </GraphView>
-      <EdgeSlider />
+      <EdgePanel />
       <ExportButton />
     </>
   );

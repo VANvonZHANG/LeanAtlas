@@ -10,7 +10,14 @@ import type Graph from "graphology";
 import type { Settings } from "sigma/settings";
 import { computeNodeColor } from "../graph/computeNodeColor";
 import { edgeKey } from "../graph/edgeSalience";
-import { hoverStore, selectionStore, topicFilterStore } from "../state/stores";
+import type { RelKind } from "../graph/edgeStyle";
+import {
+  edgeStyleStore,
+  hoverStore,
+  selectionStore,
+  structureTogglesStore,
+  topicFilterStore,
+} from "../state/stores";
 import { planRefresh, type RefreshPlan } from "../state/refreshPlan";
 import {
   effectiveEdgesStore,
@@ -64,6 +71,8 @@ function RefreshOnStoreChange() {
       selectionStore.subscribe(() => applyPlan(planRefresh("selection", g, undefined, undefined))),
       topicFilterStore.subscribe(() => applyPlan(planRefresh("topicFilter", g, undefined, undefined))),
       effectiveEdgesStore.subscribe(() => applyPlan(planRefresh("edges", g, undefined, undefined))),
+      structureTogglesStore.subscribe(() => applyPlan(planRefresh("structure", g, undefined, undefined))),
+      edgeStyleStore.subscribe(() => applyPlan(planRefresh("edgeStyle", g, undefined, undefined))),
     ];
     // Camera LOD: zoomed-out overview: density edges become overdraw noise;
     // zoomed-in keeps them. sigma's camera ratio shrinks below 1 when zooming
@@ -105,30 +114,46 @@ function RefreshOnStoreChange() {
 // render; graphology extremities() is an O(1) key lookup.
 let activeGraph: Graph | null = null;
 
-const HIGHLIGHT_EDGE = { color: "#5b7bd5", size: 1 };
-// Matches the default edge attributes set by buildGraph: the density channel
-// shows global structure in the same subdued style, just gated by salience.
-const DENSITY_EDGE = { color: "#26304a", size: 0.5 };
-
+// Relation channel dispatch: edges carry a `rel` attribute ("import" by
+// default from buildGraph). Structure relations (extends/instantiates/fields)
+// are toggleable per type, share the camera LOD gate with the density channel,
+// and under a pin draw only between closure members in their type color.
+// Import edges keep the P1 semantics (closure-internal/hover highlight, else
+// salient top-k density channel), with color/curvature from edgeStyleStore.
 const edgeReducer: Settings["edgeReducer"] = (edge, data) => {
-  const sel = selectionStore.get();
-  const hov = hoverStore.get();
   if (!activeGraph) return data;
   const [source, target] = activeGraph.extremities(edge);
+  const rel = ((data.rel as RelKind | undefined) ?? "import") as RelKind;
+  const st = edgeStyleStore.get()[rel];
+  const sel = selectionStore.get();
+  const hov = hoverStore.get();
+  const closureEnd = (n: string) => sel !== null && (n === sel.node || sel.closure.has(n));
+  if (rel !== "import") {
+    // structure channel: per-type toggle + the same camera LOD gate as density
+    const tog = structureTogglesStore.get();
+    const on = rel === "extends" ? tog.extends : rel === "instantiates" ? tog.instantiates : tog.fields;
+    if (!on || lodEdgesHiddenStore.get()) return { ...data, hidden: true };
+    if (sel) {
+      return closureEnd(source) && closureEnd(target)
+        ? { ...data, color: st.color, curvature: st.curvature, size: 0.7 }
+        : { ...data, hidden: true };
+    }
+    const incident = hov !== null && (source === hov.node || target === hov.node);
+    return { ...data, color: st.color, curvature: st.curvature, size: incident ? 1.2 : 0.7 };
+  }
+  // import channel: P1 semantics, style colors/curvature from the store
+  const imp = edgeStyleStore.get().import;
   if (sel) {
-    // pinned: draw only closure-internal edges (both ends in {node} ∪ closure), bright
-    const internal =
-      (sel.closure.has(source) || source === sel.node) &&
-      (sel.closure.has(target) || target === sel.node);
-    return internal ? { ...data, ...HIGHLIGHT_EDGE } : { ...data, hidden: true };
+    return closureEnd(source) && closureEnd(target)
+      ? { ...data, color: "#5b7bd5", curvature: imp.curvature, size: 1 }
+      : { ...data, hidden: true };
   }
   if (hov && (source === hov.node || target === hov.node)) {
-    return { ...data, ...HIGHLIGHT_EDGE };
+    return { ...data, color: "#5b7bd5", curvature: imp.curvature, size: 1 };
   }
-  // density channel: salient top-k edges dark, everything else hidden
   const vis = effectiveEdgesStore.get();
   if (vis.enabled && vis.keys.has(edgeKey(source, target))) {
-    return { ...data, ...DENSITY_EDGE };
+    return { ...data, color: imp.color, curvature: imp.curvature, size: 0.5 };
   }
   return { ...data, hidden: true };
 };
