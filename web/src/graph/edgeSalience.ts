@@ -4,7 +4,9 @@ export interface SalientEdge { a: string; b: string; score: number }
 
 export function rankEdges(g: Graph): SalientEdge[] {
   const out: SalientEdge[] = [];
-  g.forEachEdge((_e, _attrs, a, b) => {
+  g.forEachEdge((_e, attrs, a, b) => {
+    // density channel pool: imports only; structure edges never rank
+    if ((attrs.rel ?? "import") !== "import") return;
     const ra = g.getNodeAttribute(a, "r") as number;
     const rb = g.getNodeAttribute(b, "r") as number;
     out.push({ a, b, score: ra * rb });

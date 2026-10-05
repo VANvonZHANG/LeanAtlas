@@ -1,13 +1,21 @@
 import type Graph from "graphology";
 
-export function neighborsOf(g: Graph, node: string): { deps: string[]; dependents: string[] } {
+// Relation-aware neighbor walk: only import edges participate. On the
+// multi-relation graph, hasEdge/neighbors see all edge kinds, so edges are
+// inspected per-relation instead. Edge direction: dep -> importer.
+function importNeighbors(g: Graph, node: string): { deps: string[]; dependents: string[] } {
   const deps: string[] = [], dependents: string[] = [];
-  for (const d of g.neighbors(node)) {
-    // edge direction: dep -> importer; node imports d iff edge d -> node exists
-    if (g.hasEdge(d, node)) deps.push(d);
-    else dependents.push(d);
+  for (const e of g.edges(node)) {
+    if ((g.getEdgeAttribute(e, "rel") ?? "import") !== "import") continue;
+    const [source, target] = g.extremities(e);
+    if (target === node) deps.push(source);
+    else dependents.push(target);
   }
   return { deps: deps.sort(), dependents: dependents.sort() };
+}
+
+export function neighborsOf(g: Graph, node: string) {
+  return importNeighbors(g, node);
 }
 
 export function closureOf(g: Graph, node: string): { deps: Set<string>; dependents: Set<string> } {

@@ -22,3 +22,15 @@ describe("edgeSalience", () => {
     expect(topKKeys(edges, 0)).toEqual(new Set());
   });
 });
+
+describe("edgeSalience on multi-relation graph", () => {
+  it("rankEdges pools imports only", () => {
+    const g = new Graph({ type: "directed", multi: true });
+    for (const [n, r] of [["X", 3], ["Y", 2]] as const) g.addNode(n, { r });
+    g.addEdge("X", "Y", { rel: "import" });
+    g.addEdge("X", "Y", { rel: "extends" }); // same pair, structure: excluded from pool
+    const ranked = rankEdges(g);
+    expect(ranked).toHaveLength(1);
+    expect(`${ranked[0]!.a}→${ranked[0]!.b}`).toBe("X→Y");
+  });
+});
