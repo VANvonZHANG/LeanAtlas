@@ -475,3 +475,38 @@ def test_run_layout_missing_extract_warns_and_empty(tmp_path, capsys):
     assert "--extract" in err and "not found" in err
     assert doc["structureEdges"] == {"extends": [], "instantiates": [], "fields": []}
     assert doc["meta"]["stats"]["instantiatesEdges"] == 0
+
+
+def test_run_layout_present_extract_end_to_end(tmp_path):
+    """Pins the full integration seam: synthetic extract.jsonl through
+    run_layout(extract_path=...) into indexed structureEdges + stats."""
+    from mathlib_kg import layout as layout_mod
+
+    # same 3-module chain as the golden test; alive = {Mathlib.A, Mathlib.B, Mathlib.C}
+    NAME_A, NAME_B, NAME_C = "Mathlib.A", "Mathlib.B", "Mathlib.C"
+    records = [rec(NAME_A), rec(NAME_B, (NAME_A,)), rec(NAME_C, (NAME_B,))]
+    extract_records = [
+        {"name": f"{NAME_A}.Parent", "module": NAME_A},              # target decl in A
+        {"name": f"{NAME_B}.P", "module": NAME_B,                    # P in B extends A
+         "extends": [{"parent": f"{NAME_A}.Parent", "position": 0}]},
+        {"name": f"{NAME_C}.inst", "module": NAME_C,                 # C instantiates A
+         "instantiates": f"{NAME_A}.Parent"},
+        {"name": f"{NAME_B}.Sib", "module": NAME_B},                 # self-loop target
+        {"name": f"{NAME_B}.SelfLoop", "module": NAME_B,             # same module → dropped
+         "extends": [{"parent": f"{NAME_B}.Sib", "position": 0}]},
+        {"name": "Std.Foo.inst", "module": "Std.Foo",                # external → ignored
+         "instantiates": f"{NAME_A}.Parent"},
+    ]
+    ext = tmp_path / "extract.jsonl"
+    ext.write_text("".join(_json.dumps(r) + "\n" for r in extract_records),
+                   encoding="utf-8")
+
+    doc = layout_mod.run_layout(records, [], version="t",
+                                now="2026-01-01T00:00:00+00:00", extract_path=ext)
+    idx = {n["name"]: i for i, n in enumerate(doc["nodes"])}
+    assert doc["schemaVersion"] == 2
+    assert doc["structureEdges"]["extends"] == [[idx[NAME_B], idx[NAME_A]]]
+    assert doc["structureEdges"]["instantiates"] == [[idx[NAME_C], idx[NAME_A]]]
+    assert doc["structureEdges"]["fields"] == []
+    assert doc["meta"]["stats"]["extendsEdges"] == 1
+    assert doc["meta"]["stats"]["instantiatesEdges"] == 1
