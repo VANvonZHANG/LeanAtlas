@@ -16,3 +16,18 @@ describe("urlState", () => {
     expect(parseUrl("#edges=abc&z=NaN&node=X")).toEqual({ node: "X" });
   });
 });
+
+describe("se bitmask", () => {
+  it("serializes non-default masks and omits 7", () => {
+    expect(serializeUrl({ se: 7 })).toBe("#");
+    expect(serializeUrl({ se: 5 })).toBe("#se=5");
+  });
+  it("parses and clamps", () => {
+    expect(parseUrl("#se=5")).toEqual({ se: 5 });
+    expect(parseUrl("#se=abc&se=-3&se=12").se).toBe(7);
+    expect(parseUrl("#se=2")).toEqual({ se: 2 });
+  });
+  it("round-trips", () => {
+    expect(parseUrl(serializeUrl({ se: 3 }))).toEqual({ se: 3 });
+  });
+});

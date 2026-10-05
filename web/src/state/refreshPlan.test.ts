@@ -82,3 +82,13 @@ describe("planRefresh(non-hover kinds)", () => {
     expect(planRefresh("edges", g, { enabled: false }, { enabled: true })).toEqual({ kind: "full" });
   });
 });
+
+describe("planRefresh(structure/edgeStyle)", () => {
+  const g = fixture();
+  it("structure toggle change -> full", () => {
+    expect(planRefresh("structure", g, undefined, undefined)).toEqual({ kind: "full" });
+  });
+  it("edgeStyle change -> full", () => {
+    expect(planRefresh("edgeStyle", g, undefined, undefined)).toEqual({ kind: "full" });
+  });
+});

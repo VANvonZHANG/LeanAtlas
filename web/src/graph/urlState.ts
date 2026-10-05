@@ -1,5 +1,5 @@
 export interface UrlState {
-  node?: string; topic?: string; edges?: number; z?: number; x?: number; y?: number;
+  node?: string; topic?: string; edges?: number; se?: number; z?: number; x?: number; y?: number;
 }
 
 export function serializeUrl(s: UrlState): string {
@@ -7,6 +7,7 @@ export function serializeUrl(s: UrlState): string {
   if (s.node) parts.push(`node=${encodeURIComponent(s.node)}`);
   if (s.topic) parts.push(`topic=${encodeURIComponent(s.topic)}`);
   if (s.edges !== undefined) parts.push(`edges=${Math.round(s.edges)}`);
+  if (s.se !== undefined && s.se !== 7) parts.push(`se=${s.se}`);
   if (s.z !== undefined) parts.push(`z=${s.z.toFixed(3)}`);
   if (s.x !== undefined) parts.push(`x=${s.x.toFixed(2)}`);
   if (s.y !== undefined) parts.push(`y=${s.y.toFixed(2)}`);
@@ -25,6 +26,9 @@ export function parseUrl(hash: string): UrlState {
     else if (k === "edges") {
       const n = Number(val);
       if (Number.isFinite(n)) out.edges = Math.min(100, Math.max(0, Math.round(n)));
+    } else if (k === "se") {
+      const n = Number(val);
+      if (Number.isFinite(n)) out.se = Math.min(7, Math.max(0, Math.round(n)));
     } else if (k === "z" || k === "x" || k === "y") {
       const n = Number(val);
       if (Number.isFinite(n)) out[k] = n;

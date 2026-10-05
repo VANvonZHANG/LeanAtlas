@@ -11,7 +11,7 @@ export type RefreshPlan =
   | { kind: "full" }
   | { kind: "partial"; nodes: string[]; edges: string[] };
 
-export type StoreKind = "hover" | "selection" | "topicFilter" | "edges";
+export type StoreKind = "hover" | "selection" | "topicFilter" | "edges" | "structure" | "edgeStyle";
 
 // Hover transitions are the only O(degree) case: they recolor the incident
 // edges and (under an active topic filter) restore the hovered node and its
@@ -26,13 +26,13 @@ export function planRefresh(
   to: Hover | null | undefined,
 ): RefreshPlan;
 export function planRefresh(
-  kind: "selection" | "topicFilter" | "edges",
+  kind: "selection" | "topicFilter" | "edges" | "structure" | "edgeStyle",
   graph: Graph,
   from: unknown,
   to: unknown,
 ): RefreshPlan;
 export function planRefresh(
-  kind: "hover" | "selection" | "topicFilter" | "edges",
+  kind: "hover" | "selection" | "topicFilter" | "edges" | "structure" | "edgeStyle",
   graph: Graph,
   from: unknown,
   to: unknown,
