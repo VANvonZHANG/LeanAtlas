@@ -8,6 +8,13 @@ version = "0.1.0"
 description = "Build a Neo4j knowledge graph from Lean mathlib"
 requires-python = ">=3.12"
 authors = [{ name = "Fan Zhang" }]
+license = { text = "MIT" }
+keywords = ["lean", "lean4", "mathlib", "knowledge-graph", "visualization"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Lean",
+    "Programming Language :: Python :: 3.12",
+]
 dependencies = [
     "neo4j>=5.0",
     "typer>=0.15",
