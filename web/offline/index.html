@@ -38,7 +38,7 @@ try {
 let data;
 try { data = await (await fetch('../public/data.json')).json(); }
 catch (e) { fail('Failed to load data.json (run mathlib-kg layout first): ' + e); }
-if (data.schemaVersion !== 1) fail('Unsupported schemaVersion: ' + data.schemaVersion);
+if (data.schemaVersion !== 2) fail('Unsupported schemaVersion: ' + data.schemaVersion);
 
 const g = new Graph({ type: 'directed', multi: false });
 for (const n of data.nodes) {
