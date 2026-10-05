@@ -3,7 +3,7 @@ version = "0.1.0"
 
 [[require]]
 name = "mathlib"
-path = "/path/to/mathlib4"
+path = "../../mathlib4"
 
 [[lean_lib]]
 name = "StructEdgesFixture"

@@ -59,6 +59,8 @@ leanatlas parse --mathlib-path "$LEANATLAS_MATHLIB_PATH" --out structure.jsonl
 
 # 2) extract kernel-truth records (deps, relations, defining module)
 cd extract && lake exe extract Mathlib > ../extract.jsonl && cd ..
+#    extract/ expects a mathlib4 checkout as a sibling of this repo
+#    (../../mathlib4); edit extract/lakefile.toml's mathlib path otherwise
 
 # 3) load the knowledge graph into Neo4j
 leanatlas drop && leanatlas load --structure structure.jsonl --extract extract.jsonl
