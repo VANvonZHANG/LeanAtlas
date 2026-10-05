@@ -446,6 +446,35 @@ class TestRunAndRead:
         result = runner.invoke(app, ["layout", "--scope", "all"])
         assert result.exit_code == 2
 
+    def test_cli_layout_no_mathlib_path_exits_2_with_guidance(self, tmp_path, monkeypatch):
+        from typer.testing import CliRunner
+
+        from leanatlas.cli import app
+        monkeypatch.delenv("LEANATLAS_MATHLIB_PATH", raising=False)
+        (tmp_path / "s.jsonl").write_text("", encoding="utf-8")  # empty structure
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "layout", "--structure", str(tmp_path / "s.jsonl"),
+            "--out", str(tmp_path / "data.json"),
+            "--topics", str(tmp_path / "t.toml"),
+        ])
+        assert result.exit_code == 2
+        assert "LEANATLAS_MATHLIB_PATH" in result.output
+
+    def test_cli_layout_nonexistent_mathlib_path_exits_2(self, tmp_path, monkeypatch):
+        from typer.testing import CliRunner
+
+        from leanatlas.cli import app
+        monkeypatch.setenv("LEANATLAS_MATHLIB_PATH", str(tmp_path / "no-such-checkout"))
+        (tmp_path / "s.jsonl").write_text("", encoding="utf-8")
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "layout", "--structure", str(tmp_path / "s.jsonl"),
+            "--out", str(tmp_path / "data.json"),
+            "--topics", str(tmp_path / "t.toml"),
+        ])
+        assert result.exit_code == 2
+
 
 def test_build_document_structure_edges_and_stats():
     """v2 golden: structureEdges mapped to topo indices, sorted, in stats."""
