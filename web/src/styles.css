@@ -18,11 +18,10 @@ html, body, #root { margin: 0; height: 100%; background: #0b0e14; color: #e8e8e8
 .edge-panel .style-label { width:80px; }
 .edge-panel .reset { margin-top:4px; cursor:pointer; background:none; border:1px solid #2a3350; color:inherit; font:inherit; }
 .topic-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.topic-label { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); font-size: 20px;
-  font-weight: 600; color: #cfd8ff; opacity: .8;
-  text-shadow: 0 0 8px #000, 0 0 3px #000; white-space: nowrap;
+.topic-label { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); font-weight: 600;
+  white-space: nowrap; text-shadow: 0 0 8px #000, 0 0 3px #000;
   pointer-events: auto; cursor: pointer; }
-.topic-label.filtered { text-decoration: underline; opacity: 1; }
+.topic-label.filtered { text-decoration: underline; }
 
 .search-box { right:12px; top:12px; width:280px; }
 .search-box ul { list-style:none; margin:4px 0 0; padding:0; max-height:260px; overflow:auto; }
