@@ -5,7 +5,7 @@ Thanks for your interest in LeanAtlas!
 ## Setup
 
 ```bash
-git clone https://github.com/<you>/leanatlas && cd leanatlas
+git clone https://github.com/VANvonZHANG/leanatlas && cd leanatlas
 uv sync --extra dev
 cd web && pnpm install
 ```

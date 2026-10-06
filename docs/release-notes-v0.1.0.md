@@ -2,7 +2,7 @@
 
 An interactive atlas of Lean 4 mathematics.
 
-![atlas](https://raw.githubusercontent.com/<you>/leanatlas/main/assets/atlas-hero.png)
+![atlas](https://raw.githubusercontent.com/VANvonZHANG/leanatlas/main/assets/atlas-hero.png)
 
 Highlights: knowledge-graph pipeline (625k+ declarations, kernel-level
 dependencies, structural relations), deterministic module-map layout, and a
