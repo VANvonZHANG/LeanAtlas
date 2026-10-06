@@ -23,3 +23,4 @@ sigma 3.0.3 · graphology 0.26.0 · via https://cdn.jsdelivr.net/npm/<pkg>/+esm 
 #   - esm.sh/sigma@3.0.3?bundle : splits into relative chunk imports + /node/events.mjs (not single-file)
 #   - cdn.skypack.dev/sigma@3.0.3 : HTTP 404 (service unavailable)
 #   - unpkg ?module : does not bundle dependencies
+# Licenses: sigma.js and graphology are both MIT-licensed.

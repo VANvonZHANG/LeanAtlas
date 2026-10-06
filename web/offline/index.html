@@ -111,7 +111,7 @@ renderer.on('clickNode', ({ node }) => {
 });
 renderer.on('clickStage', () => { selected = null; restore(); });
 
-// ---- Hover title tooltip [local fix, T7 precedent]: sigma 3.0.3 has no native
+// ---- Hover title tooltip: sigma 3.0.3 has no native
 // tooltip/title rendering (zero title/tooltip occurrences in the vendor source, and
 // canvas nodes never trigger the browser's native title), so enterNode/leaveNode
 // events + the node title attribute back a DOM hover tooltip ----

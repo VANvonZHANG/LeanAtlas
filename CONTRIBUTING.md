@@ -6,7 +6,7 @@ Thanks for your interest in LeanAtlas!
 
 ```bash
 git clone https://github.com/<you>/leanatlas && cd leanatlas
-uv pip install -e ".[dev]"
+uv sync --extra dev
 cd web && pnpm install
 ```
 

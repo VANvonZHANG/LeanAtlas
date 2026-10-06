@@ -15,3 +15,6 @@ web/public/data.json
 web/node_modules/
 web/dist/
 web/tsconfig.tsbuildinfo
+docs/superpowers/
+docs/references/
+*.log
