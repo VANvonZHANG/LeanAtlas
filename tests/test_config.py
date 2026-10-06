@@ -20,10 +20,10 @@ def test_config_defaults(monkeypatch):
 def test_config_env_override(monkeypatch):
     monkeypatch.setenv("LEANATLAS_NEO4J_USER", "neo4j")
     monkeypatch.setenv("LEANATLAS_NEO4J_PASSWORD", "secret")
-    monkeypatch.setenv("LEANATLAS_NEO4J_DB", "mathlibkg_test")
+    monkeypatch.setenv("LEANATLAS_NEO4J_DB", "leanatlas_test")
     monkeypatch.setenv("LEANATLAS_MATHLIB_PATH", "/tmp/ml")
     cfg = get_config()
     assert cfg.neo4j_user == "neo4j"
     assert cfg.neo4j_password == "secret"
-    assert cfg.neo4j_db == "mathlibkg_test"
+    assert cfg.neo4j_db == "leanatlas_test"
     assert cfg.mathlib_path == "/tmp/ml"

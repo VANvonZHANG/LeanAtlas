@@ -1,4 +1,4 @@
-name = "mathlibkg-extract"
+name = "leanatlas-extract"
 version = "0.1.0"
 
 [[require]]

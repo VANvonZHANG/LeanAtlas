@@ -43,7 +43,7 @@ auto-generated and private declarations that source-regex parsing cannot see.
 ## Quickstart
 
 Requirements: Python 3.12+ ([uv](https://docs.astral.sh/uv/) recommended),
-Node 18+ with pnpm, a [Neo4j 5.x](https://neo4j.com/download/) instance
+Node 20.19+ (22 recommended) with pnpm, a [Neo4j 5.x](https://neo4j.com/download/) instance
 (Community Edition is fine), and a local mathlib checkout with built
 `.lake` (`lake exe cache get`).
 
@@ -91,9 +91,10 @@ Neo4j load ~30 min); `leanatlas layout` alone is ~12 s.
 - [LeanDojo](https://github.com/LeanDojo/LeanDojo) — theorem-proving trace
   data for ML; LeanAtlas focuses on structure & dependency cartography for
   humans.
-- [MathlibExplorer](https://github.com/Crispher/MathlibExplorer) — a 2024
-  static visualization; LeanAtlas is interactive, kernel-accurate, and
-  current (v4.30 shape).
+- [MathlibExplorer](https://github.com/Crispher/MathlibExplorer) — an
+  interactive 3D explorer of the mathlib import graph; LeanAtlas adds
+  kernel-accurate declaration-level relations, structural overlays, and a
+  zero-install web explorer.
 - [import-graph](https://github.com/leanprover-community/import-graph) —
   module-level dot graphs; LeanAtlas adds declaration-level KG, structural
   relations, and the web explorer.

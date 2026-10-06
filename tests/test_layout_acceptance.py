@@ -52,6 +52,6 @@ def test_full_layout_on_real_structure():
     # (The plan asserted Mathlib.Tactic; in the measured snapshot it has 0 direct
     #  importers and rank 7965/8094 — modern mathlib no longer imports that
     #  umbrella module. The largest foundational hub is Mathlib.Init, cross-checked
-    #  against networkx 3.5; see the deviation log in .superpowers/sdd/task-10-report.md.)
+    #  against networkx 3.5.)
     top5 = sorted(doc["nodes"], key=lambda nd: -nd["r"])[:5]
     assert any(nd["name"] == "Mathlib.Init" for nd in top5)
