@@ -48,7 +48,7 @@ Node 20.19+ (22 recommended) with pnpm, a [Neo4j 5.x](https://neo4j.com/download
 `.lake` (`lake exe cache get`).
 
 ```bash
-git clone https://github.com/VANvonZHANG/leanatlas && cd leanatlas
+git clone https://github.com/VANvonZHANG/LeanAtlas && cd LeanAtlas
 uv pip install -e .
 export LEANATLAS_NEO4J_URI=bolt://localhost:7687
 export LEANATLAS_NEO4J_USER=neo4j LEANATLAS_NEO4J_PASSWORD=...
