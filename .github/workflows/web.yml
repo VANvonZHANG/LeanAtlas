@@ -1,5 +1,6 @@
 name: web
 on:
+  workflow_dispatch:
   push: { paths: ["web/**"] }
   pull_request: { paths: ["web/**"] }
 jobs:
