@@ -3,6 +3,7 @@ import ExportButton from "./components/ExportButton";
 import GraphView from "./components/GraphView";
 import InfoPanel from "./components/InfoPanel";
 import SearchBox from "./components/SearchBox";
+import TopicPanel from "./components/TopicPanel";
 import { useGraphData } from "./hooks/useGraphData";
 
 export default function App() {
@@ -14,7 +15,10 @@ export default function App() {
         <SearchBox doc={data.doc} />
         <InfoPanel />
       </GraphView>
-      <EdgePanel />
+      <div className="left-column">
+        <EdgePanel />
+        <TopicPanel />
+      </div>
       <ExportButton />
     </>
   );
