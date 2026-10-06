@@ -1,6 +1,7 @@
 import { atom } from "nanostores";
 import type { Hover, Selection } from "../graph/computeNodeColor";
 import { cloneEdgeStyleDefaults, type EdgeStyle, type RelKind } from "../graph/edgeStyle";
+import { cloneTopicStyleDefaults, type TopicStyle } from "../graph/topicStyle";
 
 export const selectionStore = atom<Selection | null>(null);
 export const topicFilterStore = atom<string | null>(null);
@@ -12,3 +13,4 @@ export const structureTogglesStore = atom<StructureToggles>({
   extends: true, instantiates: true, fields: true,
 });
 export const edgeStyleStore = atom<Record<RelKind, EdgeStyle>>(cloneEdgeStyleDefaults());
+export const topicStyleStore = atom<TopicStyle>(cloneTopicStyleDefaults());
