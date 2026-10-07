@@ -1,6 +1,6 @@
 import Graph from "graphology";
 import type { DeclBlock } from "./declPack";
-import { selectionStore, topicFilterStore, viewStore } from "../state/stores";
+import { hoverStore, selectionStore, topicFilterStore, viewStore } from "../state/stores";
 
 /** Node colors by declaration kind (single palette, shared by the graph and
  * any future legend; unknown kinds get the muted default). */
@@ -42,17 +42,21 @@ export function buildDeclGraph(block: DeclBlock): Graph {
 }
 
 /** Enter the declaration view of one module. Overview-only interactions must
- * not leak in: a pinned module name does not exist here, and an active topic
- * filter would dim every declaration node (their topic attr is the kind). */
+ * not leak in: a pinned or hovered module name does not exist here, and an
+ * active topic filter would dim every declaration node (their topic attr is
+ * the kind) — a stale hover would crash the first hover refresh in the new
+ * graph (neighbor lookup on an unknown node). */
 export function drillTo(module: string): void {
+  hoverStore.set(null);
   selectionStore.set(null);
   topicFilterStore.set(null);
   viewStore.set({ mode: "decls", module });
 }
 
-/** Leave the declaration view; the pin of a declaration stays behind with
- * the graph it belonged to. */
+/** Leave the declaration view; the pin and hover of a declaration stay
+ * behind with the graph they belonged to. */
 export function backToOverview(): void {
+  hoverStore.set(null);
   selectionStore.set(null);
   viewStore.set({ mode: "overview" });
 }

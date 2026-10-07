@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { DeclBlock } from "./declPack";
-import { topicFilterStore, selectionStore, viewStore } from "../state/stores";
+import { hoverStore, topicFilterStore, selectionStore, viewStore } from "../state/stores";
 import { backToOverview, buildDeclGraph, drillTo, kindColor } from "./declView";
 
 const BLOCK: DeclBlock = {
@@ -43,22 +43,27 @@ describe("view transitions", () => {
     viewStore.set({ mode: "overview" });
     selectionStore.set(null);
     topicFilterStore.set(null);
+    hoverStore.set(null);
   });
 
   it("drillTo clears overview interactions and switches the view", () => {
     selectionStore.set({ node: "Mathlib.X", neighbors: [], closure: new Set(["Mathlib.X"]) });
     topicFilterStore.set("Algebra");
+    hoverStore.set({ node: "Mathlib.X", neighbors: [] });
     drillTo("Mathlib.X");
     expect(viewStore.get()).toEqual({ mode: "decls", module: "Mathlib.X" });
     expect(selectionStore.get()).toBeNull();
     expect(topicFilterStore.get()).toBeNull();
+    expect(hoverStore.get()).toBeNull();
   });
 
   it("backToOverview returns to overview and clears the selection", () => {
     drillTo("Mathlib.X");
     selectionStore.set({ node: "M.A.f", neighbors: [], closure: new Set() });
+    hoverStore.set({ node: "M.A.f", neighbors: [] });
     backToOverview();
     expect(viewStore.get()).toEqual({ mode: "overview" });
     expect(selectionStore.get()).toBeNull();
+    expect(hoverStore.get()).toBeNull();
   });
 });
