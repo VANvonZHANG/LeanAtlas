@@ -15,6 +15,7 @@ web/public/data.json
 web/node_modules/
 web/dist/
 web/tsconfig.tsbuildinfo
+web/public/declpack.bin
 docs/superpowers/
 docs/references/
 *.log

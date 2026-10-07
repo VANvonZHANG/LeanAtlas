@@ -1,10 +1,13 @@
 """leanatlas CLI: parse / load / query / drop / layout."""
+import json
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
 from rich import print as rprint
 
+from . import declpack as declpack_mod
 from . import layout as layout_mod
 from . import load_neo4j as ldb
 from . import parse_source
@@ -159,6 +162,42 @@ def layout(
         f"structure(E/I/F)={stats['extendsEdges']}/{stats['instantiatesEdges']}/"
         f"{stats['fieldsEdges']} "
         f"badLines={bad} → {out}"
+    )
+
+
+@app.command()
+def declpack(
+    extract: Path = typer.Option(Path("extract.jsonl"), "--extract",
+                                 help="extract.jsonl (v3, module field)"),
+    structure: Path = typer.Option(Path("structure.jsonl"), "--structure"),
+    data: Path = typer.Option(Path("web/public/data.json"), "--data",
+                              help="data.json — alive modules come from its nodes"),
+    out: Path = typer.Option(Path("web/public/declpack.bin"), "--out"),
+    mathlib_path_arg: Path = typer.Option(None, "--mathlib-path",
+                                          help="local mathlib checkout (with built .lake)"),
+) -> None:
+    """Build the declaration-level drill-down pack declpack.bin (P2)."""
+    env_path = os.environ.get("LEANATLAS_MATHLIB_PATH")
+    provided = mathlib_path_arg or env_path
+    if not provided or not Path(provided).exists():
+        typer.echo(
+            "error: mathlib checkout not found. Pass --mathlib-path or set LEANATLAS_MATHLIB_PATH",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    data_doc = json.loads(Path(data).read_text(encoding="utf-8"))
+    alive = [n["name"] for n in data_doc["nodes"]]
+    version = layout_mod.describe_mathlib(Path(provided))
+    now = datetime.now(UTC).isoformat(timespec="seconds")
+    header, blocks = declpack_mod.run_declpack(
+        extract, structure, alive, version=version, now=now)
+    declpack_mod.write_pack(header, blocks, out)
+    stats = header["meta"]["stats"]
+    typer.echo(
+        f"declpack: modules={stats['modules']} decls={stats['decls']} "
+        f"edges={stats['edges']} kindsInferred={stats['kindsInferred']} "
+        f"duplicates={stats['duplicateNames']} "
+        f"size={out.stat().st_size / 1e6:.1f}MB -> {out}"
     )
 
 
