@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.0 (2026-10-07)
 
 ### Added
 - Declaration-level drill-down: pin a module and hit "explore declarations"
