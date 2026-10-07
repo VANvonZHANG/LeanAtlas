@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.2.0 (2026-10-07)
 
 - Topic label styling in the explorer: show/hide, size, color, opacity, and
   zoom-following labels (adjustable in the new topics panel; session-local).
