@@ -16,34 +16,46 @@ import {
 // store/camera change rewrites the hash, so a copied URL always round-trips.
 const DEBOUNCE_MS = 200;
 
-// The restore block runs exactly once per PAGE LOAD, not per hook mount:
-// App keys GraphView by view, so every overview <-> declarations switch
-// remounts this hook. A remount-time re-restore would re-read the hash that
-// the leaving view never rewrote — its cleanup cancels the pending debounced
+// The STORE restore runs exactly once per PAGE LOAD; the node pin and the
+// camera restore run on EVERY mount, view-matched. App keys GraphView by
+// view, so every overview <-> declarations switch remounts this hook. A
+// remount-time re-restore of the stores would re-read the hash that the
+// leaving view never rewrote — its cleanup cancels the pending debounced
 // push in the same commit — so the stale `#mod=` would flip a just-left
 // declaration view straight back and turn the back button into a no-op
 // (caught by the P2 real-pack CDP smoke). Module scope outlives the
-// remounts; a fresh page load starts with restore enabled again.
-let restored = false;
+// remounts; a fresh page load starts with the stores unrestored again. The
+// pin is naturally view-safe (hasNode misses on the other graph's names),
+// and the view-matched camera applies each view's coordinates to its own
+// sigma exactly once — restoring the camera INTO the declaration view on a
+// deep link, keeping it out of the overview on the back-button remount, and
+// suppressing the quirk of teleporting a freshly drilled declaration camera
+// by stale overview coordinates.
+let storesRestored = false;
 
 export function useUrlSync(sigma: Sigma, initial: boolean) {
   useEffect(() => {
     if (!initial) return;
-    if (!restored) {
-      restored = true;
-      // parseUrl throws URIError when decodeURIComponent meets a malformed
-      // %-escape (e.g. "#node=%E0%A4%A"). A hand-mangled hash must not crash
-      // the app: degrade to "no restore" and let the first debounced push
-      // below rewrite the hash with clean state. (Caught here rather than
-      // hardened in urlState.ts to keep T4's pure function and its pinned
-      // tests unchanged.)
-      let st: UrlState;
-      try {
-        st = parseUrl(window.location.hash);
-      } catch {
-        st = {};
-      }
-      if (st.node && sigma.getGraph().hasNode(st.node)) pinNode(sigma.getGraph(), st.node);
+    // parseUrl throws URIError when decodeURIComponent meets a malformed
+    // %-escape (e.g. "#node=%E0%A4%A"). A hand-mangled hash must not crash
+    // the app: degrade to "no restore" and let the first debounced push
+    // below rewrite the hash with clean state. (Caught here rather than
+    // hardened in urlState.ts to keep T4's pure function and its pinned
+    // tests unchanged.)
+    let st: UrlState;
+    try {
+      st = parseUrl(window.location.hash);
+    } catch {
+      st = {};
+    }
+    // per mount, view-safe: a declaration name misses the overview graph and
+    // a module name misses the declaration graph, so exactly the mount whose
+    // graph owns the node pins it — #mod=X&node=someDecl pins someDecl once
+    // the declaration view mounts (pack declaration names are Lean full
+    // names, NOT module-prefixed).
+    if (st.node && sigma.getGraph().hasNode(st.node)) pinNode(sigma.getGraph(), st.node);
+    if (!storesRestored) {
+      storesRestored = true;
       if (st.topic) topicFilterStore.set(st.topic);
       if (st.mod) viewStore.set({ mode: "decls", module: st.mod });
       if (st.edges !== undefined) edgeDensityStore.set(st.edges / 100);
@@ -54,11 +66,17 @@ export function useUrlSync(sigma: Sigma, initial: boolean) {
           extends: (st.se & 1) !== 0, instantiates: (st.se & 2) !== 0, fields: (st.se & 4) !== 0,
         });
       }
-      // z (ratio) is the marker for camera presence: x/y/z restore together only
-      // when z parsed, so stray x/y without z does not teleport the camera.
-      if (st.z !== undefined)
-        sigma.getCamera().setState({ x: st.x ?? 0, y: st.y ?? 0, ratio: st.z });
     }
+    // z (ratio) is the marker for camera presence: x/y/z restore together only
+    // when z parsed, so stray x/y without z does not teleport the camera.
+    // View-matched: the hash's view must equal the mounted view, so each
+    // view's camera receives its own coordinates (the opposite view's
+    // mounts skip).
+    if (
+      st.z !== undefined &&
+      (st.mod !== undefined) === (viewStore.get().mode === "decls")
+    )
+      sigma.getCamera().setState({ x: st.x ?? 0, y: st.y ?? 0, ratio: st.z });
 
     let timer: ReturnType<typeof setTimeout> | null = null;
     const push = () => {
