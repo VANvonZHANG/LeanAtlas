@@ -14,3 +14,10 @@ export const structureTogglesStore = atom<StructureToggles>({
 });
 export const edgeStyleStore = atom<Record<RelKind, EdgeStyle>>(cloneEdgeStyleDefaults());
 export const topicStyleStore = atom<TopicStyle>(cloneTopicStyleDefaults());
+
+/** Which graph the page shows: the module-layer overview, or the declaration
+ * subgraph of one module (P2 drill-down). Switching mounts a fresh
+ * SigmaContainer (App keys the GraphView by view), so every overlay and
+ * binder re-runs its mount logic against the new graph. */
+export type View = { mode: "overview" } | { mode: "decls"; module: string };
+export const viewStore = atom<View>({ mode: "overview" });

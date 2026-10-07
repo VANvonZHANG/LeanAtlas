@@ -48,3 +48,11 @@ html, body, #root { margin: 0; height: 100%; background: #0b0e14; color: #e8e8e8
 .info-panel .title { font-size:13px; opacity:.9; }
 .info-panel .meta { font-size:12px; opacity:.7; }
 .export-btn { right:12px; bottom:12px; cursor:pointer; border:none; color:inherit; font:inherit; }
+
+/* P2 drill-down: top bar (declaration view), drill button, error panel.
+   .panel already provides absolute positioning + backdrop. */
+.decl-bar { left:50%; top:12px; transform:translateX(-50%); display:flex; align-items:center; gap:10px; font-size:12px; }
+.decl-bar .mod { font-weight:600; }
+.decl-error { left:50%; top:50%; transform:translate(-50%,-50%); font-size:12px; display:flex; flex-direction:column; gap:8px; }
+.info-panel .drill { margin-top:6px; cursor:pointer; background:none; border:1px solid #2a3350; color:inherit; font:inherit; }
+.decl-bar .back, .decl-error .back { cursor:pointer; background:none; border:1px solid #2a3350; color:inherit; font:inherit; }

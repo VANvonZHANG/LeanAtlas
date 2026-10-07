@@ -1,10 +1,12 @@
 export interface UrlState {
   node?: string; topic?: string; edges?: number; se?: number; z?: number; x?: number; y?: number;
+  mod?: string;
 }
 
 export function serializeUrl(s: UrlState): string {
   const parts: string[] = [];
   if (s.node) parts.push(`node=${encodeURIComponent(s.node)}`);
+  if (s.mod) parts.push(`mod=${encodeURIComponent(s.mod)}`);
   if (s.topic) parts.push(`topic=${encodeURIComponent(s.topic)}`);
   if (s.edges !== undefined) parts.push(`edges=${Math.round(s.edges)}`);
   if (s.se !== undefined && s.se !== 7) parts.push(`se=${s.se}`);
@@ -22,7 +24,7 @@ export function parseUrl(hash: string): UrlState {
     const [k, v] = kv.split("=");
     if (k === undefined || v === undefined) continue;
     const val = decodeURIComponent(v);
-    if (k === "node" || k === "topic") out[k] = val;
+    if (k === "node" || k === "topic" || k === "mod") out[k] = val;
     else if (k === "edges") {
       const n = Number(val);
       if (Number.isFinite(n)) out.edges = Math.min(100, Math.max(0, Math.round(n)));

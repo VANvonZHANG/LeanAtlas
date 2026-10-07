@@ -7,6 +7,7 @@ import {
   selectionStore,
   structureTogglesStore,
   topicFilterStore,
+  viewStore,
 } from "../state/stores";
 
 // Interactions -> #node&topic&edges&se&z&x&y, written via history.replaceState (no
@@ -31,6 +32,7 @@ export function useUrlSync(sigma: Sigma, initial: boolean) {
     }
     if (st.node && sigma.getGraph().hasNode(st.node)) pinNode(sigma.getGraph(), st.node);
     if (st.topic) topicFilterStore.set(st.topic);
+    if (st.mod) viewStore.set({ mode: "decls", module: st.mod });
     if (st.edges !== undefined) edgeDensityStore.set(st.edges / 100);
     // se: structure-relation visibility bitmask (1=extends, 2=instantiates,
     // 4=fields). Parsed values are already clamped to 0..7 by parseUrl.
@@ -50,6 +52,7 @@ export function useUrlSync(sigma: Sigma, initial: boolean) {
       timer = setTimeout(() => {
         const cam = sigma.getCamera().getState();
         const sel = selectionStore.get();
+        const view = viewStore.get();
         window.history.replaceState(
           null, "",
           serializeUrl({
@@ -58,12 +61,13 @@ export function useUrlSync(sigma: Sigma, initial: boolean) {
             edges: Math.round(edgeDensityStore.get() * 100),
             se: (() => { const t = structureTogglesStore.get();
               return (t.extends ? 1 : 0) | (t.instantiates ? 2 : 0) | (t.fields ? 4 : 0); })(),
+            mod: view.mode === "decls" ? view.module : undefined,
             z: cam.ratio, x: cam.x, y: cam.y,
           }),
         );
       }, DEBOUNCE_MS);
     };
-    const unsubs = [selectionStore, topicFilterStore, edgeDensityStore, structureTogglesStore].map((s) =>
+    const unsubs = [selectionStore, topicFilterStore, edgeDensityStore, structureTogglesStore, viewStore].map((s) =>
       s.subscribe(push),
     );
     sigma.getCamera().on("updated", push);

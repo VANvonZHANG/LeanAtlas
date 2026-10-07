@@ -31,3 +31,13 @@ describe("se bitmask", () => {
     expect(parseUrl(serializeUrl({ se: 3 }))).toEqual({ se: 3 });
   });
 });
+
+describe("mod (declaration drill-down) parameter", () => {
+  it("serializes and parses the active declaration module", () => {
+    const url = serializeUrl({ mod: "Mathlib.Order.Basic", z: 1 });
+    expect(url).toContain("mod=Mathlib.Order.Basic");
+    expect(parseUrl(url).mod).toBe("Mathlib.Order.Basic");
+    // overview state never emits mod
+    expect(serializeUrl({ z: 1 })).not.toContain("mod=");
+  });
+});
