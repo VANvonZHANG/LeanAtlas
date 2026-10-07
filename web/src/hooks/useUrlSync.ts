@@ -56,7 +56,10 @@ export function useUrlSync(sigma: Sigma, initial: boolean) {
     if (st.node && sigma.getGraph().hasNode(st.node)) pinNode(sigma.getGraph(), st.node);
     if (!storesRestored) {
       storesRestored = true;
-      if (st.topic) topicFilterStore.set(st.topic);
+      // topic filters are overview semantics; restoring one while a `mod=`
+      // hash targets the declaration view would dim every declaration node
+      // (their topic attr is the kind).
+      if (st.topic && !st.mod) topicFilterStore.set(st.topic);
       if (st.mod) viewStore.set({ mode: "decls", module: st.mod });
       if (st.edges !== undefined) edgeDensityStore.set(st.edges / 100);
       // se: structure-relation visibility bitmask (1=extends, 2=instantiates,

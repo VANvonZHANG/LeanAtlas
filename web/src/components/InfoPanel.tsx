@@ -9,6 +9,10 @@ export default function InfoPanel() {
   const sel = useAtomValue(selectionStore);
   const view = useAtomValue(viewStore);
   if (!sel) return null;
+  // a selection may name a node of the OTHER view's graph (hand-crafted
+  // #node=&mod= URL, or any future cross-view leak): graphology throws on
+  // unknown nodes, which during render would unmount the whole tree.
+  if (!sigma.getGraph().hasNode(sel.node)) return null;
   // buildGraph sets these attributes on every node (loadData.ts); the
   // graphology Attributes type is a plain index signature, hence the casts.
   const a = sigma.getGraph().getNodeAttributes(sel.node);

@@ -45,6 +45,9 @@ Header (offsets relative to the END of the header):
 - `k`: joined from structure.jsonl parsed declarations by (module, name);
   inferred from record shape otherwise (instantiates -> instance,
   constructors -> inductive, extends -> class, else def).
+- `name`: the declaration's Lean full name WITHOUT module prefix (e.g.
+  `le_iff_eq_or_lt` in `Mathlib.Order.Basic`) — names are unique within a
+  block; deep-link `#mod=X&node=<name>` pins use this unprefixed form.
 - `x`/`y` are FINAL sigma coordinates (unlike data.json's band-value y that
   the client negates) — longest-path depth on the intra-dep DAG left =
   foundations, deterministic zigzag within columns, cycle members share one

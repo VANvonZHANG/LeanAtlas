@@ -42,6 +42,9 @@ export default function App() {
     return (
       <div className="panel decl-error">
         <div>{decl.message}</div>
+        <div className="hint">the declaration pack is a release asset — build it with
+          `leanatlas declpack` or download `declpack.bin` from the releases (see
+          web/DECLPACK.md)</div>
         <button className="back" onClick={backToOverview}>← overview</button>
       </div>
     );

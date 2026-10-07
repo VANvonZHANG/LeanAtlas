@@ -190,8 +190,10 @@ const SIGMA_SETTINGS: Partial<Settings> = {
 export default function GraphView({ graph, topics, children }: { graph: Graph; topics: TopicRow[]; children?: ReactNode }) {
   // reducers are module-scope (see above), so the current graph instance is shared
   // via a module-scope reference, assigned during render — before any effect (and
-  // thus before sigma processes the graph) can run. The graph prop never changes
-  // identity in this app (loaded once in App via useGraphData).
+  // thus before sigma processes the graph) can run. Within one mount the graph
+  // prop never changes identity; App keys a fresh mount per view (overview /
+  // declarations), and each mount's render assigns its own graph here before
+  // that mount's effects run (P2).
   activeGraph = graph;
   // Rank edges once per graph load. This effect runs after sigma's initial
   // processing, which is fine: the density channel starts disabled

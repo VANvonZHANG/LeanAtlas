@@ -54,5 +54,6 @@ html, body, #root { margin: 0; height: 100%; background: #0b0e14; color: #e8e8e8
 .decl-bar { left:50%; top:12px; transform:translateX(-50%); display:flex; align-items:center; gap:10px; font-size:12px; }
 .decl-bar .mod { font-weight:600; }
 .decl-error { left:50%; top:50%; transform:translate(-50%,-50%); font-size:12px; display:flex; flex-direction:column; gap:8px; }
+.decl-error .hint { opacity: .7; max-width: 34em; }
 .info-panel .drill { margin-top:6px; cursor:pointer; background:none; border:1px solid #2a3350; color:inherit; font:inherit; }
 .decl-bar .back, .decl-error .back { cursor:pointer; background:none; border:1px solid #2a3350; color:inherit; font:inherit; }
