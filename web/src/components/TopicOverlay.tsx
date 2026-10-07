@@ -58,7 +58,8 @@ export default function TopicOverlay({ topics }: { topics: TopicRow[] }) {
         const el = labelRefs.current.get(p.id);
         if (!el) continue;
         // transform-only positioning: no layout; the -50% centering that used
-        // to live in CSS is folded into the written matrix.
+        // to live in CSS and the zoom-following scale are folded into the
+        // written matrix.
         el.style.transform =
           `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%, -50%) scale(${k})`;
         el.style.display = p.visible ? "" : "none";

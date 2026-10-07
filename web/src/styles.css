@@ -17,8 +17,9 @@ html, body, #root { margin: 0; height: 100%; background: #0b0e14; color: #e8e8e8
 .edge-panel .style-row input[type="color"] { width:24px; height:20px; padding:0; border:none; background:none; }
 .edge-panel .style-label { width:80px; }
 .edge-panel .reset { margin-top:4px; cursor:pointer; background:none; border:1px solid #2a3350; color:inherit; font:inherit; }
-.left-column { position:absolute; left:12px; top:12px; display:flex; flex-direction:column; gap:8px; z-index:10; }
-.left-column .panel { position: static; }
+.left-column { position:absolute; left:12px; top:12px; display:flex; flex-direction:column;
+  align-items:flex-start; gap:8px; z-index:10; pointer-events:none; }
+.left-column .panel { position: static; pointer-events: auto; }
 .topic-panel { display:flex; flex-direction:column; font-size:12px; gap:4px; }
 .topic-panel .row { display:flex; align-items:center; gap:6px; }
 .topic-panel .row input[type="range"] { width:70px; }
