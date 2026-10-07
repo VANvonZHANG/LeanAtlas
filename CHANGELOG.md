@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Declaration-level drill-down: pin a module and hit "explore declarations"
+  to open its internal declaration graph (kinds color-coded, intra-module
+  dependency edges), lazy-loaded per module from a single `declpack.bin` pack
+  via HTTP Range requests. Deep-linkable with `#mod=…`; PNG export works in
+  both views. Build the pack with `leanatlas declpack` (see web/DECLPACK.md).
+
 ## v0.2.0 (2026-10-07)
 
 - Topic label styling in the explorer: show/hide, size, color, opacity, and
