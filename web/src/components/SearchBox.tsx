@@ -30,14 +30,19 @@ export default function SearchBox({ doc }: { doc: DataDoc }) {
 
   // declaration search over the live API (150 ms debounce); down API = no
   // declaration section at all, module search keeps working offline
+  // (a seq counter drops responses from superseded queries)
+  const declSeq = useRef(0);
   useEffect(() => {
+    const mine = ++declSeq.current;
     const query = q.trim();
     if (api.status !== "up" || !query) {
       setDeclHits([]);
       return;
     }
     const t = setTimeout(() => {
-      void searchDecls(query).then(setDeclHits);
+      void searchDecls(query).then((hits) => {
+        if (mine === declSeq.current) setDeclHits(hits);
+      });
     }, 150);
     return () => clearTimeout(t);
   }, [q, api.status]);
