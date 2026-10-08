@@ -71,6 +71,11 @@ leanatlas layout --structure structure.jsonl --topics web/topics.toml \
 
 # 5) explore
 cd web && pnpm install && pnpm dev
+
+# 6) optional: live queries — serve the explorer + API from the database
+leanatlas layout --structure structure.jsonl --topics web/topics.toml \
+  --out web/public/data.json --store   # persist the map for live serving
+leanatlas serve                        # http://127.0.0.1:8000
 ```
 
 The full pipeline over Mathlib takes about an hour (extraction ~20 min,
@@ -85,6 +90,10 @@ Neo4j load ~30 min); `leanatlas layout` alone is ~12 s.
   wiring), violet = field projections. Color and curvature are adjustable
   live; the state round-trips through the URL hash for shareable deep links.
 - **Export** the current view as PNG (topic labels and edges included).
+- **Live queries** (`leanatlas serve`): search reaches every declaration
+  (not just modules), selected declarations show their type signature,
+  docstring, and a mathlib4 source link, and cross-module dependency panels
+  answer "who uses this?" without leaving the explorer.
 
 ## Related work
 

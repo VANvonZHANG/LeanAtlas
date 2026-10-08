@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- `leanatlas serve`: a local FastAPI over the live Neo4j graph — declaration
+  search across all ~550k declarations, on-demand declaration details (type
+  signature, docstring, mathlib4 source deep links), cross-module dependency
+  queries (per-declaration in/out, module-to-module strips), and DB-served
+  overview/declaration graphs via `leanatlas layout --store`. The static
+  explorer degrades gracefully when the server is absent.
+- Loader v3 module attribution: extract records now backfill each
+  declaration's defining module, type signature, and fallback kind in the
+  database (existing databases need one re-run of `leanatlas load`).
+
 ## v0.3.0 (2026-10-07)
 
 ### Added
