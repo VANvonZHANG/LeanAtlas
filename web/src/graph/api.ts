@@ -76,6 +76,19 @@ export function fetchDeclDeps(name: string, dir: "in" | "out", limit = 200): Pro
     `/api/decl/${encodeURIComponent(name)}/deps?dir=${dir}&limit=${limit}`);
 }
 
+/** Module-pair dependency strip (spec §9 C-2): all A→B declaration edges,
+ * grouped by source declaration. */
+export interface StripPayload {
+  total: number;
+  groups: { from: string; kind: string | null; count: number;
+            edges: { to: string; kind: string | null }[] }[];
+}
+
+export function fetchDepStrip(a: string, b: string, limit = 500): Promise<StripPayload> {
+  return apiJson<StripPayload>(
+    `/api/depstrip?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}&limit=${limit}`);
+}
+
 /** One module's declaration block from whichever source is available: the
  * live API when up (fresh database), else the static pack. null = module
  * unknown to both. API failure mid-request falls through to the pack. */

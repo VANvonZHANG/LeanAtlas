@@ -78,7 +78,10 @@ export default function InfoPanel() {
           cross-module dependencies…
         </button>
       )}
-      {depsFor && <DepsPanel node={depsFor} onClose={() => setDepsFor(null)} />}
+      {depsFor && (
+        <DepsPanel node={depsFor} mod={detail?.module ?? null}
+                   onClose={() => setDepsFor(null)} />
+      )}
     </div>
   );
 }

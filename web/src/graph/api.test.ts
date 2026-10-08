@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiStore } from "../state/stores";
 import { declPack, type DeclBlock } from "./declPack";
-import { getModuleBlock, loadOverviewFromApi, probeApi, searchDecls } from "./api";
+import {
+  fetchDepStrip,
+  getModuleBlock,
+  loadOverviewFromApi,
+  probeApi,
+  searchDecls,
+  type StripPayload,
+} from "./api";
 
 const DOC = { schemaVersion: 2, meta: {}, topics: [], nodes: [], edges: [], structureEdges: {} };
 const BLOCK: DeclBlock = {
@@ -69,6 +76,27 @@ describe("searchDecls", () => {
   it("resolves to [] instead of throwing when the API is down", async () => {
     stubFetch(() => null);
     expect(await searchDecls("foo")).toEqual([]);
+  });
+});
+
+describe("fetchDepStrip", () => {
+  const STRIP: StripPayload = {
+    total: 2,
+    groups: [
+      { from: "Mathlib.A.user", kind: "theorem", count: 2,
+        edges: [{ to: "Mathlib.B.base", kind: "def" }, { to: "Mathlib.B.aux", kind: "lemma" }] },
+    ],
+  };
+
+  it("fetches the grouped module-pair strip", async () => {
+    stubFetch((u) => (u === "/api/depstrip?a=Mathlib.A&b=Mathlib.B&limit=500"
+      ? api(200, STRIP) : null));
+    expect(await fetchDepStrip("Mathlib.A", "Mathlib.B")).toEqual(STRIP);
+  });
+
+  it("throws on API error", async () => {
+    stubFetch((u) => (u === "/api/depstrip?a=X&b=Y&limit=500" ? api(503, null) : null));
+    await expect(fetchDepStrip("X", "Y")).rejects.toThrow("503");
   });
 });
 

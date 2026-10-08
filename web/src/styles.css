@@ -75,3 +75,10 @@ html, body, #root { margin: 0; height: 100%; background: #0b0e14; color: #e8e8e8
 .deps-body ul { list-style: none; margin: 2px 0; padding-left: 10px; }
 .deps-body li { cursor: pointer; }
 .deps-panel .kind-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+/* module-pair strip (P3 C-2): input row styled like the search box's field */
+.deps-strip-form { display: flex; gap: 4px; align-items: center; margin-top: 6px; }
+.deps-strip-form input { flex: 1; min-width: 0; background: none;
+  border: 1px solid #2a3350; color: inherit; font: inherit; padding: 2px 4px; border-radius: 4px; }
+.deps-strip-form .deps-strip-arrow { opacity: .6; }
+.deps-strip-form .go { cursor: pointer; background: none; border: 1px solid #2a3350; color: inherit; font: inherit; }
+.deps-strip-form .go:disabled { opacity: .5; cursor: default; }
