@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .serve_core import db_unavailable, ok, session
 from .serve_graph import graph_router, module_router
+from .serve_query import query_router
 
 health_router = APIRouter()
 
@@ -46,6 +47,7 @@ def create_app(dist: Path | None = None) -> FastAPI:
     app.include_router(health_router)
     app.include_router(graph_router)
     app.include_router(module_router)
+    app.include_router(query_router)
     if dist is not None and Path(dist).is_dir():
         # mounted last: routes registered above win, everything else is static
         app.mount("/", StaticFiles(directory=dist, html=True), name="dist")
