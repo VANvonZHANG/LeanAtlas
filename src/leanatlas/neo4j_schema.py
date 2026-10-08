@@ -50,9 +50,9 @@ def drop_kg_batched(session) -> None:
     # every edge type mirrors DEPENDS_ON's while...LIMIT...DELETE pattern)
     for t in ("DEPENDS_ON", "IMPORTS", "IN_NAMESPACE", "SUBNAMESPACE_OF", "DEFINED_IN",
               "EXTENDS", "INSTANTIATES", "DEPRECATED_BY", "HAS_ADDITIVE_VERSION",
-              "HAS_FIELD", "HAS_CONSTRUCTOR"):
+              "HAS_FIELD", "HAS_CONSTRUCTOR", "VIZ", "STRUCTURE"):
         while session.run(f"MATCH ()-[r:{t}]->() RETURN count(r)").single()[0] > 0:
             session.run(f"MATCH ()-[r:{t}]->() WITH r LIMIT 200000 DELETE r")
-    for label in ("Declaration", "Module", "Namespace"):
+    for label in ("Declaration", "Module", "Namespace", "Meta"):
         while session.run(f"MATCH (n:{label}) RETURN count(n)").single()[0] > 0:
             session.run(f"MATCH (n:{label}) WITH n LIMIT 50000 DELETE n")

@@ -135,6 +135,9 @@ def layout(
                                  help="extract.jsonl (v3, module field) for structure edges"),
     mathlib_path_arg: Path = typer.Option(None, "--mathlib-path",
                                           help="local mathlib checkout (with built .lake)"),
+    store: bool = typer.Option(False, "--store",
+                               help="also persist the layout into the configured "
+                                    "database (live-serve mode)"),
 ) -> None:
     """Compute the module-level layout and export data.json (visualization layer P0)."""
     if scope != "mathlib":
@@ -155,6 +158,24 @@ def layout(
     doc = layout_mod.run_layout(records, topic_list, version=version,
                                 skipped_bad_lines=bad, extract_path=extract)
     layout_mod.write_document(doc, out)
+    if store:
+        from . import layout_store
+        cfg = get_config()
+        driver = ldb.connect()
+        rows = layout_store.build_store_rows(doc)
+        with driver.session(database=cfg.neo4j_db) as s:
+            s.execute_write(layout_store.store_layout, rows)
+            stored = s.run(
+                "MATCH (m:Module) WHERE m.x IS NOT NULL RETURN count(m) AS n"
+            ).single()["n"]
+        driver.close()
+        if stored != doc["meta"]["stats"]["modules"]:
+            typer.echo(
+                f"warn: stored {stored} of {doc['meta']['stats']['modules']} modules — "
+                "database was loaded from a different structure.jsonl?",
+                err=True,
+            )
+        typer.echo(f"layout --store: {stored} modules persisted -> {cfg.neo4j_db}")
     stats = doc["meta"]["stats"]
     typer.echo(
         f"layout: modules={stats['modules']} edgesDirect={stats['edgesDirect']} "
