@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type Graph from "graphology";
-import { declPack, type DeclBlock } from "../graph/declPack";
+import type { DeclBlock } from "../graph/declPack";
+import { getModuleBlock } from "../graph/api";
 import { buildDeclGraph } from "../graph/declView";
 
 export type DeclGraphState =
@@ -21,8 +22,7 @@ export function useDeclGraph(module: string | null): DeclGraphState {
     }
     let cancelled = false;
     setState({ status: "loading" });
-    declPack
-      .getModule(module)
+    getModuleBlock(module)
       .then((block) => {
         if (cancelled) return;
         if (!block) setState({ status: "error", message: `no declaration data for ${module}` });

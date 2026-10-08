@@ -21,3 +21,17 @@ export const topicStyleStore = atom<TopicStyle>(cloneTopicStyleDefaults());
  * binder re-runs its mount logic against the new graph. */
 export type View = { mode: "overview" } | { mode: "decls"; module: string };
 export const viewStore = atom<View>({ mode: "overview" });
+
+/** Live-API availability (P3): probed once per page load from App. "down"
+ * hides every API-only feature; rendering never depends on it (static files
+ * remain the data source of last resort — spec §2 degradation ladder). */
+export interface ApiState {
+  status: "probing" | "up" | "down";
+  decls: number | null;
+  modules: number | null;
+  layoutPresent: boolean;
+  kgVersion: number | null;
+}
+export const apiStore = atom<ApiState>({
+  status: "probing", decls: null, modules: null, layoutPresent: false, kgVersion: null,
+});
