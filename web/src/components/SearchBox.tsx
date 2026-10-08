@@ -73,7 +73,8 @@ export default function SearchBox({ doc }: { doc: DataDoc }) {
         onChange={(e) => { setQ(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onKeyDown={(e) => {
-          if (e.key === "ArrowDown") setCursor((c) => Math.min(c + 1, hits.length - 1));
+          if (e.key === "ArrowDown")
+            setCursor((c) => (hits.length ? Math.min(c + 1, hits.length - 1) : 0));
           else if (e.key === "ArrowUp") setCursor((c) => Math.max(c - 1, 0));
           else if (e.key === "Enter" && hits[cursor]) pick(hits[cursor]!);
           else if (e.key === "Escape") setOpen(false);

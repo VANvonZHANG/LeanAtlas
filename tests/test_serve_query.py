@@ -19,6 +19,15 @@ def test_search_finds_attributed_declarations():
 
 
 @requires_neo4j
+def test_search_rejects_overlong_query():
+    load_fixture()
+    client = TestClient(create_app(None))
+    assert client.get("/api/search", params={"q": "a" * 257}).status_code == 422
+    # 256 (post-strip) is still accepted
+    assert client.get("/api/search", params={"q": "a" * 256}).status_code == 200
+
+
+@requires_neo4j
 def test_decl_detail_and_source_url():
     load_fixture()
     client = TestClient(create_app(None))

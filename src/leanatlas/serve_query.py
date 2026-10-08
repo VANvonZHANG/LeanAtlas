@@ -45,6 +45,8 @@ _SEARCH_Q = (
 @query_router.get("/api/search")
 def search(q: str, limit: int = 20) -> dict:
     q = q.strip()
+    if len(q) > 256:
+        raise HTTPException(422, "query too long")
     if not q:
         return ok([])
     limit = max(1, min(limit, 100))
@@ -144,7 +146,9 @@ def _deps_q(direction: str) -> str:
     return (
         f"MATCH (d:Declaration {{name:$name}}){rel}(other:Declaration) "
         "WHERE other.module IS NULL OR d.module IS NULL OR other.module <> d.module "
-        "RETURN other.name AS other, other.kind AS otherKind, "
+        # DISTINCT like _INTRA_Q/_STRIP_Q: duplicate DEPENDS_ON edges between
+        # the same pair would double-count groups and collide React keys.
+        "RETURN DISTINCT other.name AS other, other.kind AS otherKind, "
         "coalesce(other.module, '(external)') AS otherModule, d.kind AS selfKind "
         "ORDER BY otherModule, other LIMIT $limit"
     )
