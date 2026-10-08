@@ -53,11 +53,13 @@ export default function DepsPanel({ node, onClose }: { node: string; onClose: ()
                 {g.edges.map((e) => {
                   const other = dir === "in" ? e.from : e.to;
                   const otherKind = (dir === "in" ? e.fromKind : e.toKind) ?? "def";
+                  // external names carry no module to drill into: render, don't jump
                   return (
                     <li key={`${e.from}->${e.to}`}
+                        style={g.module === "(external)" ? { cursor: "default" } : undefined}
                         onMouseDown={(ev) => {
                           ev.preventDefault();
-                          jump(g.module, e);
+                          if (g.module !== "(external)") jump(g.module, e);
                         }}>
                       <span className="kind-dot" style={{ background: kindColor(otherKind) }} />
                       {other}
