@@ -134,13 +134,16 @@ def decls_batch(body: BatchBody) -> dict:
 
 
 def _deps_q(direction: str) -> str:
-    pattern = (
-        "MATCH (d:Declaration {name:$name})<-[:DEPENDS_ON]-(other:Declaration)"
-        if direction == "in" else
-        "MATCH (d:Declaration {name:$name})-[:DEPENDS_ON]->(other:Declaration)"
-    )
+    # Cross-module only (spec §6): same-module deps are excluded — they live
+    # in the declaration block (/api/module/{name}/decls), not here. External
+    # (unattributed core/std) deps stay: they are cross-module in spirit and
+    # render as the "(external)" group. The d.module IS NULL arm keeps the
+    # query total for unattributed self nodes (never fires for the attributed
+    # decls the panel serves).
+    rel = "<-[:DEPENDS_ON]-" if direction == "in" else "-[:DEPENDS_ON]->"
     return (
-        f"{pattern} "
+        f"MATCH (d:Declaration {{name:$name}}){rel}(other:Declaration) "
+        "WHERE other.module IS NULL OR d.module IS NULL OR other.module <> d.module "
         "RETURN other.name AS other, other.kind AS otherKind, "
         "coalesce(other.module, '(external)') AS otherModule, d.kind AS selfKind "
         "ORDER BY otherModule, other LIMIT $limit"

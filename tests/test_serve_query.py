@@ -53,13 +53,11 @@ def test_decl_deps_directions_and_external_group():
     assert d["groups"] == [{"module": "(external)", "count": 1, "edges": [
         {"from": "Mathlib.B.base", "fromKind": "def", "to": "Nat", "toKind": None},
     ]}]
-    # the graph stores ALL DEPENDS_ON edges (intra included — the module block
-    # reuses them), and v3 attributes _private.A.0.gen to Mathlib.A, so the
-    # out-deps of Mathlib.A.user carry both the cross and the intra edge
+    # intra-module deps are excluded by design (the block carries them)
     res = client.get("/api/decl/Mathlib.A.user/deps", params={"dir": "out"})
     d = res.json()["data"]
-    assert d["total"] == 2  # Mathlib.B.base (cross) + _private.A.0.gen (intra)
-    assert [g["module"] for g in d["groups"]] == ["Mathlib.A", "Mathlib.B"]
+    assert d["total"] == 1  # only Mathlib.B.base (cross)
+    assert [g["module"] for g in d["groups"]] == ["Mathlib.B"]
     assert client.get("/api/decl/zzz/deps").status_code == 404
 
 
