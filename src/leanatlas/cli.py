@@ -201,5 +201,24 @@ def declpack(
     )
 
 
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", "--host", help="bind address (0.0.0.0 opens LAN)"),
+    port: int = typer.Option(8000, "--port"),
+    dist: Path = typer.Option(Path("web/dist"), "--dist",
+                              help="built web assets; API-only mode if missing"),
+) -> None:
+    """Serve the explorer (static) + query API (live Neo4j) from one origin (P3)."""
+    import uvicorn
+
+    from .serve import create_app
+
+    if not dist.is_dir():
+        typer.echo(f"serve: {dist} not found — serving API only", err=True)
+        uvicorn.run(create_app(None), host=host, port=port)
+    else:
+        uvicorn.run(create_app(dist), host=host, port=port)
+
+
 if __name__ == "__main__":
     app()
