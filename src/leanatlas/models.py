@@ -84,6 +84,9 @@ class ExtractRecord(msgspec.Struct):
     # v2.5 fields/constructors (empty lists by default, backward compatible)
     fields: list[FieldItem] = msgspec.field(default_factory=list)
     constructors: list[CtorItem] = msgspec.field(default_factory=list)
+    # v3: defining module (present on every current extract record; older
+    # records decode to None). P3 serve reads the module property this feeds.
+    module: str | None = None
 
 
 def module_to_json(m: ModuleRecord) -> str:

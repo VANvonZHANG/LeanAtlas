@@ -181,13 +181,45 @@ def load_dependencies(tx, records: list) -> None:
             "ON CREATE SET n.isExternal = true",
             batch=dep_names[i : i + BATCH],
         )
-    # Write typeSignature onto declarations
-    sig_rows = [{"name": er.name, "typeSignature": er.typeSignature} for er in records]
-    for i in range(0, len(sig_rows), BATCH):
+    # v3 module attribution: replace the MATCH-only typeSignature write. Every
+    # record carries its defining module, so nodes the source parse never saw
+    # (auto-generated / private declarations) are created attributed instead of
+    # remaining bare placeholders. kind backfills only where absent — the
+    # structure-parsed kind (load_declarations ran first) is authoritative, and
+    # the fallback order mirrors declpack.infer_kind.
+    attr_rows = [
+        {
+            "name": er.name,
+            "module": er.module,
+            "sig": er.typeSignature,
+            "kind": ("instance" if er.instantiates is not None
+                     else "inductive" if er.constructors
+                     else "class" if er.extends
+                     else "def"),
+        }
+        for er in records
+        if er.module
+    ]
+    for i in range(0, len(attr_rows), BATCH):
+        tx.run(
+            "UNWIND $batch AS r MERGE (d:Declaration {name:r.name}) "
+            "ON CREATE SET d.isExternal = true "
+            "SET d.module = r.module, d.typeSignature = r.sig, "
+            "d.kind = coalesce(d.kind, r.kind)",
+            batch=attr_rows[i : i + BATCH],
+        )
+    # Old (pre-v3) records without `module` skip attribution but keep the v2
+    # MATCH-only typeSignature write (test_load_deps.py pins this).
+    legacy_rows = [
+        {"name": er.name, "sig": er.typeSignature}
+        for er in records
+        if not er.module
+    ]
+    for i in range(0, len(legacy_rows), BATCH):
         tx.run(
             "UNWIND $batch AS r MATCH (d:Declaration {name:r.name}) "
-            "SET d.typeSignature=r.typeSignature",
-            batch=sig_rows[i : i + BATCH],
+            "SET d.typeSignature=r.sig",
+            batch=legacy_rows[i : i + BATCH],
         )
     # DEPENDS_ON edges
     edge_rows: list[dict] = []
