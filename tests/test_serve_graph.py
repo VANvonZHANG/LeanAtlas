@@ -6,7 +6,7 @@ from leanatlas.serve import create_app
 
 # module-level: the @requires_neo4j decorators need the names at import time,
 # and importing kgfixture itself never touches the database
-from tests.kgfixture import load_fixture, requires_neo4j
+from tests.kgfixture import fixture_records, load_fixture, requires_neo4j
 
 # --- pure: block builder parity with the pack builder on identical inputs ---
 
@@ -130,6 +130,79 @@ def test_graph_503_without_stored_layout():
     sg._doc_cache.update(kgVersion=None, doc=None)
     client = TestClient(create_app(None))
     assert client.get("/api/graph").status_code == 503
+
+
+@requires_neo4j
+def test_graph_503_clears_caches():
+    """I1 regression: a wiped graph (no :Meta) must empty BOTH caches — a
+    long-lived process must not outlive its cached generation."""
+    import leanatlas.serve_graph as sg
+    from leanatlas.config import get_config
+    from leanatlas.load_neo4j import connect
+
+    load_fixture()
+    sg._doc_cache.update(kgVersion=1, doc={"sentinel": True})
+    sg._block_cache["Mathlib.A"] = {"sentinel": True}
+    driver = connect()
+    with driver.session(database=get_config().neo4j_db) as s:
+        s.run("MATCH (m:Meta) DETACH DELETE m")  # direct wipe of :Meta
+    driver.close()
+    client = TestClient(create_app(None))
+    assert client.get("/api/graph").status_code == 503
+    assert sg._doc_cache == {"kgVersion": None, "doc": None}
+    assert len(sg._block_cache) == 0
+
+
+@requires_neo4j
+def test_rebuild_invalidates_cached_doc():
+    """I1 regression: after Meta is dropped and a CHANGED document re-stored,
+    a surviving process (holding the old doc in _doc_cache) must serve the
+    NEW document. Both generations' first store hits the kgVersion-IS-NULL
+    arm; the wall-clock seed keeps the two versions apart (the sleep makes
+    the differing seconds deterministic — the seed is second-granular)."""
+    import time as _time
+
+    import leanatlas.serve_graph as sg
+    from leanatlas.config import get_config
+    from leanatlas.layout import run_layout
+    from leanatlas.layout_store import build_store_rows, store_layout
+    from leanatlas.load_neo4j import connect
+
+    load_fixture()  # fresh generation-0 graph: Modules A/B, no layout yet
+    recs, _ = fixture_records()
+    doc1 = run_layout(recs, [], version="v-gen1",
+                      now="2026-10-07T00:00:00+00:00")
+    driver = connect()
+    with driver.session(database=get_config().neo4j_db) as s:
+        s.execute_write(store_layout, build_store_rows(doc1))
+    driver.close()
+    sg._doc_cache.update(kgVersion=None, doc=None)
+    client = TestClient(create_app(None))
+    res = client.get("/api/graph")
+    assert res.status_code == 200, res.text
+    assert res.json()["data"] == doc1  # gen-1 doc now cached in-process
+
+    _time.sleep(1.1)  # second-granularity seeds need different seconds
+    # a CHANGED generation: one module fewer
+    doc2 = run_layout(recs[:1], [], version="v-gen2",
+                      now="2026-10-08T00:00:00+00:00")
+    driver = connect()
+    with driver.session(database=get_config().neo4j_db) as s:
+        # simulate the drop of a reload: Meta + layout props + viz edges gone
+        s.run("MATCH (m:Meta) DETACH DELETE m")
+        s.run(
+            "MATCH (m:Module) REMOVE m.x, m.y, m.r, m.topic, m.color, "
+            "m.declCount, m.closureSize, m.topo"
+        )
+        s.run("MATCH ()-[r:VIZ]->() DELETE r")
+        s.run("MATCH ()-[r:STRUCTURE]->() DELETE r")
+        s.execute_write(store_layout, build_store_rows(doc2))
+    driver.close()
+    # same process, gen-1 doc still in _doc_cache — must NOT be served
+    res = client.get("/api/graph")
+    assert res.status_code == 200, res.text
+    assert res.json()["data"] == doc2
+    assert [n["name"] for n in res.json()["data"]["nodes"]] == ["Mathlib.B"]
 
 
 @requires_neo4j

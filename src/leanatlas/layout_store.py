@@ -6,11 +6,14 @@ the transitively-reduced import edges as VIZ, module-level structure edges as
 STRUCTURE {rel}, and the document's meta/topics JSON on :Meta. kgVersion
 increments on every store so /api/graph's cache invalidates; drop_kg_batched
 clears Meta/VIZ/STRUCTURE, so a wiped graph reads layoutPresent=false and can
-never serve a stale cached document (spec §7).
+never serve a stale cached document (spec §7). The first store after a wipe
+seeds kgVersion from wall-clock (see store_layout) so versions never repeat
+across rebuilds either.
 """
 from __future__ import annotations
 
 import json
+import time
 
 from .structure_edges import REL_TYPES
 
@@ -71,8 +74,14 @@ def store_layout(tx, rows: dict) -> None:
             "CREATE (a)-[:STRUCTURE {rel:e.rel}]->(b)",
             batch=rows["struct"][i : i + 1000],
         )
+    # A wiped database restarts kgVersion numbering, so the first store of
+    # each generation is seeded from wall-clock — a long-lived serve process
+    # can never see a repeated version across rebuilds (its cached document
+    # from the previous generation always mismatches and reloads).
     tx.run(
         "MERGE (m:Meta {id:$id}) SET m.topicsJson=$topics, m.metaJson=$meta, "
-        "m.kgVersion=coalesce(m.kgVersion,0)+1",
+        "m.kgVersion = CASE WHEN m.kgVersion IS NULL THEN $seed "
+        "ELSE m.kgVersion + 1 END",
         id=META_ID, topics=rows["topicsJson"], meta=rows["metaJson"],
+        seed=int(time.time()),
     )

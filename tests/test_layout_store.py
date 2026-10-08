@@ -47,6 +47,8 @@ def test_topo_avoids_cypher_reserved_word():
     not os.environ.get("LEANATLAS_NEO4J_PASSWORD"), reason="requires Neo4j credentials"
 )
 def test_store_layout_roundtrip():
+    import time
+
     from leanatlas.config import get_config
     from leanatlas.layout_store import build_store_rows, store_layout
     from leanatlas.load_neo4j import (
@@ -79,6 +81,7 @@ def test_store_layout_roundtrip():
     ]
     cfg = get_config()
     driver = connect()
+    t0 = time.time()
     with driver.session(database=cfg.neo4j_db) as s:
         s.execute_write(drop_kg_batched)
         s.execute_write(apply_schema)
@@ -97,9 +100,19 @@ def test_store_layout_roundtrip():
             "MATCH (m:Meta {id:'kg'}) RETURN m.kgVersion AS v, "
             "m.topicsJson IS NOT NULL AS p"
         ).single()
+        # a second store within the generation increments (kgVersion+1 arm)
+        s.execute_write(store_layout, build_store_rows(DOC))
+        v2 = s.run(
+            "MATCH (m:Meta {id:'kg'}) RETURN m.kgVersion AS v"
+        ).single()["v"]
         # leave the DB clean for the next gated test
         s.run("MATCH (m:Meta {id:'kg'}) DETACH DELETE m")
     driver.close()
     assert props == {"x": 1.0, "topo": 1, "color": "#ffff00", "topic": "Algebra"}
     assert viz == {"a": "Mathlib.B", "b": "Mathlib.A"}
-    assert meta["v"] == 1 and meta["p"] is True
+    # first store of a wiped generation is seeded from wall-clock (I1): the
+    # version is never a small counter that a long-lived serve process could
+    # have cached from a previous generation
+    assert int(t0) <= meta["v"] <= int(time.time())
+    assert meta["p"] is True
+    assert v2 == meta["v"] + 1

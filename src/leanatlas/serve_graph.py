@@ -13,6 +13,7 @@ extract first-appearance order: content-equivalent, not byte-identical, spec §3
 from __future__ import annotations
 
 import json
+import threading
 from collections import OrderedDict
 from typing import Any
 
@@ -91,6 +92,13 @@ def get_graph() -> dict:
         with session() as s:
             meta_row = s.run(_META_Q).single()
             if meta_row is None or meta_row["topicsJson"] is None:
+                # A wiped graph invalidates everything; a surviving process
+                # must not outlive its caches (I1: without this, a 503 would
+                # leave generation-N doc/blocks cached to be served again
+                # should numbering ever restart from a stale value).
+                _doc_cache.update(kgVersion=None, doc=None)
+                with _block_cache_lock:
+                    _block_cache.clear()
                 raise HTTPException(
                     status_code=503,
                     detail="layout not stored — run `leanatlas layout --store`",
@@ -124,6 +132,10 @@ _INTRA_Q = (
 )
 
 _block_cache: OrderedDict[str, dict] = OrderedDict()
+# Sync FastAPI endpoints run in uvicorn's thread pool, so the LRU can be hit
+# from several threads at once — every mutation (and the 503 clear above)
+# takes the lock.
+_block_cache_lock = threading.Lock()
 _BLOCK_CACHE_MAX = 128
 
 
@@ -150,9 +162,11 @@ def build_block_doc(module: str, decls: list[dict], edges: list[tuple[int, int]]
 
 @module_router.get("/api/module/{name}/decls")
 def module_decls(name: str) -> dict:
-    cached = _block_cache.get(name)
+    with _block_cache_lock:
+        cached = _block_cache.get(name)
+        if cached:
+            _block_cache.move_to_end(name)
     if cached:
-        _block_cache.move_to_end(name)
         return ok(cached)
     try:
         with session() as s:
@@ -176,8 +190,8 @@ def module_decls(name: str) -> dict:
         if r["src"] != r["dst"] and r["src"] in idx and r["dst"] in idx
     })
     doc = build_block_doc(name, decls, edges)
-    _block_cache[name] = doc
-    _block_cache.move_to_end(name)
-    while len(_block_cache) > _BLOCK_CACHE_MAX:
-        _block_cache.popitem(last=False)
+    with _block_cache_lock:
+        _block_cache[name] = doc  # OrderedDict assignment moves it to the end
+        while len(_block_cache) > _BLOCK_CACHE_MAX:
+            _block_cache.popitem(last=False)
     return ok(doc)
