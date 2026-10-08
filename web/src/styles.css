@@ -57,3 +57,7 @@ html, body, #root { margin: 0; height: 100%; background: #0b0e14; color: #e8e8e8
 .decl-error .hint { opacity: .7; max-width: 34em; }
 .info-panel .drill { margin-top:6px; cursor:pointer; background:none; border:1px solid #2a3350; color:inherit; font:inherit; }
 .decl-bar .back, .decl-error .back { cursor:pointer; background:none; border:1px solid #2a3350; color:inherit; font:inherit; }
+
+/* mixed search (P3): kind dot + meta line on declaration hits */
+.search-box .kind-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
+.search-box .hit-meta { opacity: .6; font-size: .85em; margin-left: 4px; }

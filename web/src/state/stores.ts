@@ -35,3 +35,8 @@ export interface ApiState {
 export const apiStore = atom<ApiState>({
   status: "probing", decls: null, modules: null, layoutPresent: false, kgVersion: null,
 });
+
+/** A declaration name to pin once the declaration view's graph is ready.
+ * Written by search picks and dep-panel jumps (the overview graph does not
+ * contain declaration nodes); App consumes it after the keyed decl mount. */
+export const pendingPinStore = atom<string | null>(null);

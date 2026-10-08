@@ -8,16 +8,23 @@ import SearchBox from "./components/SearchBox";
 import TopicPanel from "./components/TopicPanel";
 import { probeApi } from "./graph/api";
 import { backToOverview } from "./graph/declView";
+import { pinNode } from "./graph/pin";
 import { useAtomValue } from "./hooks/useAtomValue";
 import { useDeclGraph } from "./hooks/useDeclGraph";
 import { useGraphData } from "./hooks/useGraphData";
-import { viewStore } from "./state/stores";
+import { pendingPinStore, viewStore } from "./state/stores";
 
 export default function App() {
   const data = useGraphData();
   const view = useAtomValue(viewStore);
   const decl = useDeclGraph(view.mode === "decls" ? view.module : null);
   useEffect(() => { void probeApi(); }, []);
+  const pendingPin = useAtomValue(pendingPinStore);
+  useEffect(() => {
+    if (view.mode !== "decls" || decl.status !== "ready" || !pendingPin) return;
+    if (decl.graph.hasNode(pendingPin)) pinNode(decl.graph, pendingPin);
+    pendingPinStore.set(null);
+  }, [view, decl, pendingPin]);
   if (!data) return <div className="placeholder">loading mathlib graph…</div>;
   // Two keyed GraphView mounts (never a graph-prop swap inside one live
   // SigmaContainer — remount is the verified-safe path, and the module-layer
