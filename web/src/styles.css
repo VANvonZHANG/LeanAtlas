@@ -61,3 +61,17 @@ html, body, #root { margin: 0; height: 100%; background: #0b0e14; color: #e8e8e8
 /* mixed search (P3): kind dot + meta line on declaration hits */
 .search-box .kind-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
 .search-box .hit-meta { opacity: .6; font-size: .85em; margin-left: 4px; }
+
+/* declaration details + dependency panel (P3) */
+.info-panel .decl-detail .source { display: inline-block; margin: 4px 0; }
+.info-panel .decl-detail .doc { opacity: .8; font-size: .9em; margin: 4px 0; }
+.info-panel .decl-detail pre { max-height: 14em; overflow: auto; font-size: .8em; white-space: pre-wrap; }
+.info-panel .deps-toggle { margin-top: 6px; }
+.deps-panel { position: absolute; left: 12px; bottom: 12px; max-width: 34em; max-height: 40vh; overflow: auto; z-index: 5; }
+.deps-head { display: flex; gap: 6px; align-items: center; }
+.deps-head .deps-node { opacity: .7; font-size: .85em; overflow: hidden; text-overflow: ellipsis; }
+.deps-head .close { margin-left: auto; }
+.deps-body .deps-group-head { opacity: .7; margin-top: 6px; }
+.deps-body ul { list-style: none; margin: 2px 0; padding-left: 10px; }
+.deps-body li { cursor: pointer; }
+.deps-panel .kind-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
