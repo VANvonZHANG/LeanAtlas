@@ -35,12 +35,16 @@ _NODES_Q = (
     "m.isDeprecated AS isDeprecated, m.title AS title, m.docstring AS docstring "
     "ORDER BY m.topo"
 )
-# pair order [a, b] = [dep, importer]. build_document enumerates edges
-# importer-major (`for b in range(n) for a in reduced[b]`, reduced[b] sorted),
-# so ORDER BY b.topo, a.topo reproduces the document's edge array verbatim.
+# pair order [a, b] = [dep, importer]. build_document enumerates the edge
+# array name-index-major (`for b in range(n) for a in reduced[b]` — the
+# indices are filter_and_build's NAME-sorted order, reduced[b] name-index
+# sorted), NOT importer-topo-major: topo and name orderings are unrelated
+# permutations. Module names are unique, so ORDER BY b.name, a.name (ASCII
+# codepoint order = Python sorted) reproduces the document's array verbatim;
+# the RETURNed values stay the topo positions (node-array indices).
 _VIZ_Q = (
-    "MATCH (a:Module)-[:VIZ]->(b:Module) "
-    "RETURN a.topo AS a, b.topo AS b ORDER BY b.topo, a.topo"
+    "MATCH (dep:Module)-[:VIZ]->(imp:Module) "
+    "RETURN dep.topo AS a, imp.topo AS b ORDER BY imp.name, dep.name"
 )
 # build_document sorts each structureEdges list lexicographically on the
 # (min, max)-normalized pair — ORDER BY a.topo, b.topo reproduces it.

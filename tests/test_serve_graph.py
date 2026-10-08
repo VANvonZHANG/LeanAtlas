@@ -1,11 +1,12 @@
 """serve_graph: pure assemblers (ungated) + endpoint behavior (gated)."""
 from fastapi.testclient import TestClient
 
+from leanatlas.models import Declaration, Import, ModuleRecord
 from leanatlas.serve import create_app
 
 # module-level: the @requires_neo4j decorators need the names at import time,
 # and importing kgfixture itself never touches the database
-from tests.kgfixture import fixture_records, load_fixture, requires_neo4j
+from tests.kgfixture import load_fixture, requires_neo4j
 
 # --- pure: block builder parity with the pack builder on identical inputs ---
 
@@ -55,20 +56,64 @@ def test_assemble_graph_doc_truncates_docstring():
     assert doc["structureEdges"] == {"extends": [[0, 1]], "instantiates": [], "fields": []}
 
 
+def _viz_order_records() -> list[ModuleRecord]:
+    """The parity test's OWN fixture (kgfixture stays untouched for Task 5):
+    4 modules / 3 direct (= 3 reduced) edges where NAME order ≠ TOPO order —
+    Mathlib.A.deep is name-first but topo-LAST, so any importer-topo-major
+    edge enumeration orders the document's edge array differently than
+    build_document's name-index-major one. (A 3-module diamond like
+    Z.base←A.mid←M.top collapses to 2 edges whose orderings coincide.)"""
+
+    def rec(module: str, imports: list[Import]) -> ModuleRecord:
+        path = module.replace(".", "/") + ".lean"
+        short = module.rsplit(".", 1)[1]
+        return ModuleRecord(
+            module=module, path=path, imports=imports,
+            declarations=[Declaration(
+                name=f"{module}.{short}", shortName=short, kind="def",
+                namespace=module, sourceFile=path, startLine=1, endLine=2,
+                sourceText=f"def {short} := 1",
+            )],
+        )
+
+    return [
+        rec("Mathlib.A.deep", [Import(name="Mathlib.N.mid")]),
+        rec("Mathlib.M.leaf", []),
+        rec("Mathlib.N.mid", [Import(name="Mathlib.M.leaf")]),
+        rec("Mathlib.Z.shallow", [Import(name="Mathlib.M.leaf")]),
+    ]
+
+
 @requires_neo4j
 def test_graph_endpoint_reassembles_stored_document():
     import leanatlas.serve_graph as sg
+    from leanatlas.config import get_config
     from leanatlas.layout import run_layout
     from leanatlas.layout_store import build_store_rows, store_layout
+    from leanatlas.load_neo4j import (
+        connect,
+        load_declarations,
+        load_imports,
+        load_modules,
+    )
+    from leanatlas.neo4j_schema import apply_schema, drop_kg_batched
 
-    recs, _ext = fixture_records()
+    recs = _viz_order_records()
     doc1 = run_layout(recs, [], version="v-test",
                       now="2026-10-07T00:00:00+00:00")
-    load_fixture()
-    from leanatlas.config import get_config
-    from leanatlas.load_neo4j import connect
+    # pin the topology parity hinges on: nodes topo-ordered (A.deep last
+    # despite being name-first), edges name-index-major (A.deep's edge first)
+    assert [n["name"] for n in doc1["nodes"]] == [
+        "Mathlib.M.leaf", "Mathlib.N.mid", "Mathlib.Z.shallow", "Mathlib.A.deep"]
+    assert doc1["edges"] == [[1, 3], [0, 1], [0, 2]]
+
     driver = connect()
     with driver.session(database=get_config().neo4j_db) as s:
+        s.execute_write(drop_kg_batched)
+        s.execute_write(apply_schema)
+        s.execute_write(load_modules, recs)
+        s.execute_write(load_declarations, recs)
+        s.execute_write(load_imports, recs)
         s.execute_write(store_layout, build_store_rows(doc1))
     driver.close()
     sg._doc_cache.update(kgVersion=None, doc=None)  # cold cache
