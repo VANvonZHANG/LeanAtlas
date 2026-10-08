@@ -73,6 +73,8 @@ leanatlas layout --structure structure.jsonl --topics web/topics.toml \
 cd web && pnpm install && pnpm dev
 
 # 6) optional: live queries — serve the explorer + API from the database
+#    (step 5 ended inside web/; build the dist the server hosts, come back up)
+cd web && pnpm build && cd ..
 leanatlas layout --structure structure.jsonl --topics web/topics.toml \
   --out web/public/data.json --store   # persist the map for live serving
 leanatlas serve                        # http://127.0.0.1:8000
@@ -93,7 +95,10 @@ Neo4j load ~30 min); `leanatlas layout` alone is ~12 s.
 - **Live queries** (`leanatlas serve`): search reaches every declaration
   (not just modules), selected declarations show their type signature,
   docstring, and a mathlib4 source link, and cross-module dependency panels
-  answer "who uses this?" without leaving the explorer.
+  answer "who uses this?" without leaving the explorer. Source links and
+  docstrings currently appear only on declarations the source parser
+  captured (~15% of attributed declarations; a known parser bug, fix
+  planned next release).
 
 ## Related work
 
