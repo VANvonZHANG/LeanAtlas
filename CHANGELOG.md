@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.4.0 (2026-10-09)
 
 ### Added
 - `leanatlas serve`: a local FastAPI over the live Neo4j graph — declaration
